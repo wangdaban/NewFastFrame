@@ -5,8 +5,8 @@ import android.support.annotation.Nullable;
 import com.example.chat.ChatInterceptor;
 import com.example.chat.MainRepositoryManager;
 import com.example.chat.base.Constant;
-import com.example.commonlibrary.bean.chat.DaoSession;
 import com.example.commonlibrary.dagger.scope.PerApplication;
+import com.example.commonlibrary.net.download.DaoSession;
 import com.google.gson.Gson;
 
 import java.util.concurrent.TimeUnit;

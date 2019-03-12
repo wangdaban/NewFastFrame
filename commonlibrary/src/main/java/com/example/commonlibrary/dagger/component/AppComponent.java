@@ -4,12 +4,12 @@ import android.app.Application;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 
-import com.example.commonlibrary.bean.chat.DaoSession;
 import com.example.commonlibrary.dagger.module.AppConfigModule;
 import com.example.commonlibrary.dagger.module.AppModule;
 import com.example.commonlibrary.dagger.module.GlobalConfigModule;
 import com.example.commonlibrary.imageloader.ImageLoader;
 import com.example.commonlibrary.manager.ActivityManager;
+import com.example.commonlibrary.net.download.DaoSession;
 import com.google.gson.Gson;
 
 import java.io.File;
@@ -39,17 +39,14 @@ public interface AppComponent {
 
     public OkHttpClient getOkHttpClient();
 
-
-
     public ActivityManager getActivityManager();
-
-
 
     public DaoSession getDaoSession();
 
     public OkHttpClient.Builder getOkHttpClientBuilder();
 
     public Retrofit getRetrofit();
+
     public SharedPreferences getSharedPreferences();
 
 }

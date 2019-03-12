@@ -4,8 +4,8 @@ package com.example.news.dagger;
 import android.support.annotation.Nullable;
 
 import com.example.commonlibrary.BaseApplication;
-import com.example.commonlibrary.bean.chat.DaoSession;
 import com.example.commonlibrary.dagger.scope.PerApplication;
+import com.example.commonlibrary.net.download.DaoSession;
 import com.example.news.MainRepositoryManager;
 import com.example.news.interceptor.CacheControlInterceptor;
 import com.example.news.interceptor.NewsInterceptor;
@@ -33,9 +33,6 @@ import retrofit2.converter.gson.GsonConverterFactory;
  */
 @Module
 public class NewsModule {
-
-
-
 
     @Provides
     @PerApplication

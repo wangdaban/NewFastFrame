@@ -3,11 +3,11 @@ package com.example.commonlibrary.dagger.module;
 import android.app.Application;
 import android.support.annotation.Nullable;
 
-import com.example.commonlibrary.bean.chat.DaoMaster;
-import com.example.commonlibrary.bean.chat.DaoSession;
 import com.example.commonlibrary.interceptor.LogInterceptor;
 import com.example.commonlibrary.manager.ActivityManager;
 import com.example.commonlibrary.net.OkHttpGlobalHandler;
+import com.example.commonlibrary.net.download.DaoMaster;
+import com.example.commonlibrary.net.download.DaoSession;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
@@ -33,8 +33,6 @@ import retrofit2.converter.gson.GsonConverterFactory;
  */
 @Module
 public class GlobalConfigModule {
-
-
 
     @Provides
     @Singleton

@@ -35,8 +35,8 @@ import com.example.commonlibrary.bean.chat.SystemNotifyEntity;
 import com.example.commonlibrary.bean.chat.SystemNotifyEntityDao;
 import com.example.commonlibrary.bean.chat.UserEntity;
 import com.example.commonlibrary.bean.chat.UserEntityDao;
-import com.example.commonlibrary.bean.chat.DaoMaster;
-import com.example.commonlibrary.bean.chat.DaoSession;
+import com.example.commonlibrary.net.download.DaoMaster;
+import com.example.commonlibrary.net.download.DaoSession;
 import com.google.gson.Gson;
 
 import org.greenrobot.greendao.database.Database;

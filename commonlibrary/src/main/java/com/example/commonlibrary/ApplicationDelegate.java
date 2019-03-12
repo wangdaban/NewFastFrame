@@ -31,8 +31,7 @@ public class ApplicationDelegate implements IAppLife {
         ManifestParser manifestParser = new ManifestParser(base);
         list = manifestParser.parse();
         if (list != null && list.size() > 0) {
-            for (IModuleConfig configModule :
-                    list) {
+            for (IModuleConfig configModule : list) {
                 configModule.injectAppLifecycle(base, appLifes);
                 configModule.injectActivityLifecycle(base, liferecycleCallbacks);
             }
