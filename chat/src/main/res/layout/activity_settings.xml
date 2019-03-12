@@ -18,7 +18,7 @@
         android:paddingRight="15dp"
         android:paddingTop="10dp"
     >
-        <com.example.commonlibrary.cusotomview.RoundAngleImageView
+        <com.example.commonlibrary.customview.RoundAngleImageView
             android:id="@+id/riv_setting_avatar"
             android:layout_width="50dp"
             android:layout_height="50dp"
@@ -99,7 +99,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="通知提醒"/>
-        <android.support.v7.widget.SwitchCompat
+        <androidx.appcompat.widget.SwitchCompat
             android:id="@+id/sc_activity_settings_notify"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

@@ -1,25 +1,18 @@
 package com.example.chat.dagger;
 
-import android.support.annotation.Nullable;
 
-import com.example.chat.ChatInterceptor;
-import com.example.chat.MainRepositoryManager;
-import com.example.chat.base.Constant;
+import com.example.chat.base.ChatInterceptor;
+import com.example.chat.base.ConstantUtil;
+import com.example.commonlibrary.bean.chat.DaoSession;
 import com.example.commonlibrary.dagger.scope.PerApplication;
-import com.example.commonlibrary.net.download.DaoSession;
-import com.google.gson.Gson;
-
-import java.util.concurrent.TimeUnit;
-
+import com.example.commonlibrary.mvp.model.DefaultModel;
+import com.example.commonlibrary.repository.DefaultRepositoryManager;
 import javax.inject.Named;
 
 import dagger.Module;
 import dagger.Provides;
 import okhttp3.OkHttpClient;
 import retrofit2.Retrofit;
-import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory;
-import retrofit2.converter.gson.GsonConverterFactory;
-
 /**
  * 项目名称:    NewFastFrame
  * 创建人:        陈锦军
@@ -31,21 +24,25 @@ public class ChatMainModule {
 
 
     @Provides
-    @PerApplication
-    public MainRepositoryManager provideRepositoryManager(@Named("chat") Retrofit retrofit, DaoSession daoSession) {
-        return new MainRepositoryManager(retrofit, daoSession);
+    public DefaultRepositoryManager provideRepositoryManager(@Named("chat") Retrofit retrofit, DaoSession daoSession) {
+        return new DefaultRepositoryManager(retrofit, daoSession);
     }
 
 
+
+
+    @Provides
+    public DefaultModel providerModel(DefaultRepositoryManager defaultRepositoryManager){
+        return new DefaultModel(defaultRepositoryManager);
+    }
 
 
 
     @Provides
     @Named("chat")
     @PerApplication
-    public Retrofit provideRetrofit(@Named("chat") OkHttpClient okHttpClient, @Nullable Gson gson){
-        Retrofit.Builder builder=new Retrofit.Builder().baseUrl(Constant.BASE_URL).addCallAdapterFactory(RxJava2CallAdapterFactory.create())
-                .addConverterFactory(GsonConverterFactory.create(gson)).client(okHttpClient);
+    public Retrofit provideRetrofit(@Named("chat") OkHttpClient okHttpClient,Retrofit.Builder builder){
+        builder.baseUrl(ConstantUtil.BASE_URL).client(okHttpClient);
         return builder.build();
     }
 
@@ -53,9 +50,7 @@ public class ChatMainModule {
     @Provides
     @Named("chat")
     @PerApplication
-    public OkHttpClient provideOkHttpClient(@Named("chat")ChatInterceptor interceptor){
-        OkHttpClient.Builder builder=new OkHttpClient.Builder();
-        builder.connectTimeout(10, TimeUnit.SECONDS).readTimeout(10,TimeUnit.SECONDS);
+    public OkHttpClient provideOkHttpClient(@Named("chat")ChatInterceptor interceptor,OkHttpClient.Builder builder){
         builder.addInterceptor(interceptor);
         return builder.build();
     }

@@ -1,37 +1,35 @@
 package com.example.chat.mvp.main.friends;
 
-import android.Manifest;
-import android.support.v4.widget.SwipeRefreshLayout;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.SearchView;
 import android.widget.TextView;
 
-
 import com.example.chat.R;
 import com.example.chat.adapter.FriendsAdapter;
 import com.example.chat.base.AppBaseFragment;
-import com.example.chat.base.Constant;
+import com.example.chat.base.ConstantUtil;
 import com.example.chat.dagger.friends.DaggerFriendsComponent;
 import com.example.chat.dagger.friends.FriendsModule;
 import com.example.chat.events.UserEvent;
 import com.example.chat.manager.UserDBManager;
 import com.example.chat.manager.UserManager;
 import com.example.chat.mvp.NearByPeople.NearbyPeopleActivity;
+import com.example.chat.mvp.UserInfoTask.UserInfoActivity;
 import com.example.chat.mvp.blackList.BlackListActivity;
 import com.example.chat.mvp.chat.ChatActivity;
 import com.example.chat.mvp.group.groupList.GroupListActivity;
-import com.example.chat.mvp.main.HomeFragment;
 import com.example.chat.view.IndexView;
 import com.example.commonlibrary.baseadapter.SuperRecyclerView;
 import com.example.commonlibrary.baseadapter.empty.EmptyLayout;
 import com.example.commonlibrary.baseadapter.listener.OnSimpleItemClickListener;
 import com.example.commonlibrary.baseadapter.manager.WrappedLinearLayoutManager;
 import com.example.commonlibrary.bean.chat.UserEntity;
-import com.example.commonlibrary.cusotomview.ListViewDecoration;
+import com.example.commonlibrary.baseadapter.decoration.ListViewDecoration;
+import com.example.commonlibrary.customview.ToolBarOption;
+import com.example.commonlibrary.customview.swipe.CustomSwipeRefreshLayout;
 import com.example.commonlibrary.utils.AppUtil;
-import com.example.commonlibrary.utils.PermissionUtil;
 import com.example.commonlibrary.utils.ToastUtils;
 
 import java.util.ArrayList;
@@ -41,7 +39,6 @@ import java.util.List;
 import javax.inject.Inject;
 
 
-
 /**
  * 项目名称:    PostDemo
  * 创建人:      陈锦军
@@ -49,9 +46,9 @@ import javax.inject.Inject;
  * QQ:         1981367757
  */
 
-public class FriendsFragment extends AppBaseFragment<List<UserEntity>, FriendsPresenter> implements View.OnClickListener, SwipeRefreshLayout.OnRefreshListener, IndexView.MyLetterChangeListener {
+public class FriendsFragment extends AppBaseFragment<List<UserEntity>, FriendsPresenter> implements View.OnClickListener, CustomSwipeRefreshLayout.OnRefreshListener, IndexView.MyLetterChangeListener {
 
-    private SwipeRefreshLayout refresh;
+    private CustomSwipeRefreshLayout refresh;
     private SuperRecyclerView display;
     private IndexView indexView;
     private TextView index;
@@ -69,25 +66,21 @@ public class FriendsFragment extends AppBaseFragment<List<UserEntity>, FriendsPr
             tempList.addAll(users);
         }
         if (users != null && users.size() > 1) {
-            Collections.sort(users, (user, t1) -> AppUtil.getSortedKey(user.getName()).compareTo(AppUtil.getSortedKey(t1.getNick())));
+            Collections.sort(users, (user, t1) -> AppUtil.getSortedKey(user.getName()).compareTo(AppUtil.getSortedKey(t1.getName())));
         }
         adapter.refreshData(users);
-    }
+  }
 
     @Override
     protected boolean isNeedHeadLayout() {
-        return false;
+        return true;
     }
+
     @Override
     protected boolean isNeedEmptyLayout() {
         return false;
     }
 
-
-    @Override
-    protected boolean needStatusPadding() {
-        return false;
-    }
 
     @Override
     protected int getContentLayout() {
@@ -97,11 +90,11 @@ public class FriendsFragment extends AppBaseFragment<List<UserEntity>, FriendsPr
 
     @Override
     protected void initView() {
-        refresh = (SwipeRefreshLayout) findViewById(R.id.refresh_fragment_friends_refresh);
-        display = (SuperRecyclerView) findViewById(R.id.srcv_fragment_friends_display);
-        indexView = (IndexView) findViewById(R.id.index_fragment_friends_index);
-        index = (TextView) findViewById(R.id.tv_fragment_friends_index);
-        search = (SearchView) findViewById(R.id.sv_fragment_friends_search);
+        refresh = findViewById(R.id.refresh_fragment_friends_refresh);
+        display = findViewById(R.id.srcv_fragment_friends_display);
+        indexView = findViewById(R.id.index_fragment_friends_index);
+        index = findViewById(R.id.tv_fragment_friends_index);
+        search = findViewById(R.id.sv_fragment_friends_search);
         search.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
             @Override
             public boolean onQueryTextSubmit(String s) {
@@ -127,7 +120,6 @@ public class FriendsFragment extends AppBaseFragment<List<UserEntity>, FriendsPr
         });
         refresh.setOnRefreshListener(this);
         indexView.setListener(this);
-
     }
 
     @Override
@@ -136,14 +128,15 @@ public class FriendsFragment extends AppBaseFragment<List<UserEntity>, FriendsPr
                 .friendsModule(new FriendsModule(this))
                 .build().inject(this);
         display.setLayoutManager(manager = new WrappedLinearLayoutManager(getContext()));
-        display.addItemDecoration(new ListViewDecoration(getContext()));
+        display.addItemDecoration(new ListViewDecoration());
         display.addHeaderView(getHeaderView());
         display.setAdapter(adapter);
         adapter.setOnItemClickListener(new OnSimpleItemClickListener() {
             @Override
             public void onItemClick(int position, View view) {
-                ChatActivity.start(getActivity(), Constant.TYPE_PERSON,adapter
-                .getData(position).getUid());
+//                ChatActivity.start(getActivity(), ConstantUtil.TYPE_PERSON, adapter
+//                        .getData(position).getUid());和，
+                UserInfoActivity.start(getActivity(),adapter.getData(position).getUid());
             }
         });
         presenter.registerEvent(UserEntity.class, user -> {
@@ -154,7 +147,7 @@ public class FriendsFragment extends AppBaseFragment<List<UserEntity>, FriendsPr
                 List<UserEntity> list = adapter.getData();
                 int size = list.size();
                 for (int i = 0; i < size; i++) {
-                    if (AppUtil.getSortedKey(user.getName()).compareTo(AppUtil.getSortedKey(list.get(i).getNick())) == 0) {
+                    if (AppUtil.getSortedKey(user.getName()).compareTo(AppUtil.getSortedKey(list.get(i).getName())) == 0) {
                         adapter.addData(i, user);
                         return;
                     }
@@ -164,37 +157,34 @@ public class FriendsFragment extends AppBaseFragment<List<UserEntity>, FriendsPr
         });
         presenter.registerEvent(UserEvent.class, userEvent -> {
             if (userEvent.getAction() == UserEvent.ACTION_ADD) {
-                UserEntity userEntity= UserDBManager.getInstance()
+                UserEntity userEntity = UserDBManager.getInstance()
                         .getUser(userEvent.getUid());
                 adapter.addData(userEntity);
-            }else {
-               adapter.deleteFriendById(userEvent.getUid());
+            } else {
+                adapter.deleteFriendById(userEvent.getUid());
             }
         });
+        initToolBar();
     }
 
-
+    private void initToolBar() {
+        ToolBarOption toolBarOption = new ToolBarOption();
+        toolBarOption.setTitle("好友");
+        toolBarOption.setAvatar(UserManager.getInstance().getCurrentUser().getAvatar());
+        toolBarOption.setNeedNavigation(true);
+        setToolBar(toolBarOption);
+    }
 
 
     private View getHeaderView() {
         View headerView = LayoutInflater.from(getContext())
-                .inflate(R.layout.view_fragment_friends_header, null);
+                .inflate(R.layout.view_fragment_friends_header, display.getHeaderContainer(), false);
         headerView.findViewById(R.id.tv_view_fragment_friends_header_black).setOnClickListener(this);
         headerView.findViewById(R.id.tv_view_fragment_friends_header_nearby).setOnClickListener(this);
         headerView.findViewById(R.id.tv_view_fragment_friends_header_group).setOnClickListener(this);
         return headerView;
     }
 
-
-    @Override
-    public void onHiddenChanged(boolean hidden) {
-        super.onHiddenChanged(hidden);
-        if (!hidden) {
-            if (!hidden) {
-                ((HomeFragment) getParentFragment()).updateTitle("好友管理");
-            }
-        }
-    }
 
     @Override
     protected void updateView() {
@@ -228,9 +218,9 @@ public class FriendsFragment extends AppBaseFragment<List<UserEntity>, FriendsPr
         int id = view.getId();
         if (id == R.id.tv_view_fragment_friends_header_black) {
             BlackListActivity.start(getActivity());
-        }else if (id==R.id.tv_view_fragment_friends_header_nearby){
+        } else if (id == R.id.tv_view_fragment_friends_header_nearby) {
             NearbyPeopleActivity.start(getActivity());
-        }else if (id==R.id.tv_view_fragment_friends_header_group){
+        } else if (id == R.id.tv_view_fragment_friends_header_group) {
             GroupListActivity.start(getActivity());
         }
     }

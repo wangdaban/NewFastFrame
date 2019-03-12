@@ -2,9 +2,13 @@ package com.example.commonlibrary.utils;
 
 import android.app.ActivityManager;
 import android.content.Context;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.text.TextUtils;
+import android.util.TypedValue;
 
 import com.example.commonlibrary.BaseApplication;
 
@@ -44,8 +48,20 @@ public class AppUtil {
         }
         return false;
     }
-    public static boolean isNetworkAvailable(){
+
+    public static boolean isNetworkAvailable() {
         return isNetworkAvailable(BaseApplication.getInstance());
+    }
+
+
+    public static boolean checkPackInfo(Context context, String packageName) {
+        PackageInfo packageInfo = null;
+        try {
+            packageInfo = context.getPackageManager().getPackageInfo(packageName, 0);
+        } catch (PackageManager.NameNotFoundException e) {
+            e.printStackTrace();
+        }
+        return packageInfo != null;
     }
 
 
@@ -70,25 +86,6 @@ public class AppUtil {
     }
 
 
-    public static boolean isServiceRunning(Context context, String serviceName) {
-        if (context == null || TextUtils.isEmpty(serviceName)) {
-            return false;
-        }
-        ActivityManager activityManager = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
-        List<ActivityManager.RunningServiceInfo> runningServiceInfoList = activityManager.getRunningServices(Integer.MAX_VALUE);
-        if (runningServiceInfoList != null && runningServiceInfoList.size() > 0) {
-            for (ActivityManager.RunningServiceInfo info :
-                    runningServiceInfoList) {
-                if (info.service.getClassName().equals(serviceName)) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-
-
     public static String getSortedKey(String name) {
         if (name == null) {
             return "";
@@ -106,16 +103,31 @@ public class AppUtil {
         return builder.toString().substring(0, 1).toUpperCase();
     }
 
+    public static String getPinYin(String name) {
+        StringBuilder builder = new StringBuilder();
+        String singleItem;
+        for (int i = 0; i < name.length(); i++) {
+            singleItem = getSinglePinYing(name.charAt(i));
+            if (singleItem == null) {
+                builder.append(name.charAt(i));
+            } else {
+                builder.append(singleItem);
+            }
+        }
+        return builder.toString().toUpperCase();
+    }
+
+
     private static String getSinglePinYing(char c) {
         HanyuPinyinOutputFormat format = new HanyuPinyinOutputFormat();
         format.setToneType(HanyuPinyinToneType.WITHOUT_TONE);
         try {
             String[] results = PinyinHelper.toHanyuPinyinStringArray(c, format);
             if (results == null) {
-//                                不是汉字返回空
+                //                                不是汉字返回空
                 return null;
             } else {
-//                                因为有可能是多音字
+                //                                因为有可能是多音字
                 return results[0];
             }
         } catch (BadHanyuPinyinOutputFormatCombination badHanyuPinyinOutputFormatCombination) {
@@ -123,6 +135,7 @@ public class AppUtil {
             return null;
         }
     }
+
 
     /**
      * 邮箱格式是否正确
@@ -139,6 +152,101 @@ public class AppUtil {
         Matcher matcher = pattern.matcher(email);
 
         return matcher.matches();
+    }
 
+
+    public static boolean isPhone(String mobiles) {
+        String telRegex = "[1][3456789]\\d{9}";//"[1]"代表第1位为数字1，"[358]"代表第二位可以为3、5、8中的一个，"\\d{9}"代表后面是可以是0～9的数字，有9位。
+        if (TextUtils.isEmpty(mobiles))
+            return false;
+        else
+            return mobiles.matches(telRegex);
+    }
+
+    public static PackageInfo getPackageInfo() {
+        try {
+            return BaseApplication.getInstance().getPackageManager()
+                    .getPackageInfo(BaseApplication.getInstance().getPackageName(), 0);
+
+        } catch (PackageManager.NameNotFoundException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    public static boolean isAppAlive() {
+        Context context = BaseApplication.getInstance();
+        if (context != null) {
+            return isAppRunning(context, context.getPackageName()) || isProcessRunning(context, getPackageUid(context));
+        } else {
+            return false;
+        }
+    }
+
+
+    /**
+     * 方法描述：判断某一应用是否正在运行
+     * Created by cafeting on 2017/2/4.
+     *
+     * @param context     上下文
+     * @param packageName 应用的包名
+     * @return true 表示正在运行，false 表示没有运行
+     */
+    public static boolean isAppRunning(Context context, String packageName) {
+        ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+        List<ActivityManager.RunningTaskInfo> list = am.getRunningTasks(100);
+        if (list.size() <= 0) {
+            return false;
+        }
+        for (ActivityManager.RunningTaskInfo info : list) {
+            if (info.baseActivity.getPackageName().equals(packageName)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+
+    //获取已安装应用的 uid，-1 表示未安装此应用或程序异常
+    public static int getPackageUid(Context context) {
+        try {
+            ApplicationInfo applicationInfo = context.getPackageManager().getApplicationInfo(context.getPackageName(), 0);
+            if (applicationInfo != null) {
+                return applicationInfo.uid;
+            }
+        } catch (Exception e) {
+            CommonLogger.e(e);
+            return -1;
+        }
+        return -1;
+    }
+
+    /**
+     * 判断某一 uid 的程序是否有正在运行的进程，即是否存活
+     * Created by cafeting on 2017/2/4.
+     *
+     * @param context 上下文
+     * @param uid     已安装应用的 uid
+     * @return true 表示正在运行，false 表示没有运行
+     */
+    public static boolean isProcessRunning(Context context, int uid) {
+        ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+        List<ActivityManager.RunningServiceInfo> runningServiceInfos = am.getRunningServices(200);
+        if (runningServiceInfos.size() > 0) {
+            for (ActivityManager.RunningServiceInfo appProcess : runningServiceInfos) {
+                if (uid == appProcess.uid) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public static int getActionBarHeight(Context context) {
+        TypedValue tv = new TypedValue();
+        if (context.getTheme().resolveAttribute(android.R.attr.actionBarSize, tv, true)) {
+            return TypedValue.complexToDimensionPixelSize(tv.data, context.getResources().getDisplayMetrics());
+        }
+        return 0;
     }
 }

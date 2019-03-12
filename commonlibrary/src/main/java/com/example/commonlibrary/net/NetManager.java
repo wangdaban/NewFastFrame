@@ -17,7 +17,6 @@ import com.example.commonlibrary.net.upload.UpLoadRequestBody;
 import com.example.commonlibrary.utils.AppUtil;
 import com.example.commonlibrary.utils.CommonLogger;
 import com.example.commonlibrary.utils.FileUtil;
-import com.example.commonlibrary.utils.NetUtil;
 
 import java.io.File;
 import java.io.IOException;
@@ -84,7 +83,7 @@ public class NetManager {
         newFileInfoMap.put(file.getAbsolutePath(), info);
         Retrofit retrofit = BaseApplication.getAppComponent().getRetrofit();
         UpLoadProgressObserver upLoadProgressObserver = new UpLoadProgressObserver(info, listener);
-        RequestBody requestBody = RequestBody.create(NetUtil.guessMimeType(file.getName()), file);
+        RequestBody requestBody = RequestBody.create(FileUtil.guessMimeType(file.getName()), file);
         UpLoadRequestBody upLoadRequestBody = new UpLoadRequestBody(upLoadProgressObserver, requestBody);
         MultipartBody.Part part = MultipartBody.Part.createFormData(key, file.getName(), upLoadRequestBody);
         retrofit.create(UpLoadApi.class).upLoad(url, part).subscribeOn(Schedulers.io())
@@ -143,17 +142,13 @@ public class NetManager {
                     .client(builder.build()).baseUrl(AppUtil.getBasUrl(url)).build();
             stringRetrofitMap.put(url, retrofit);
         }
-        retrofit.create(DownLoadApi.class).downLoad("bytes=" + info.getLoadBytes() + "-", url).subscribeOn(Schedulers.io()).map(new Function<ResponseBody, FileInfo>() {
-            @Override
-            public FileInfo apply(@NonNull ResponseBody responseBody) throws Exception {
-                return writeCaches(responseBody, url);
-            }
-        }).unsubscribeOn(Schedulers.io()).observeOn(AndroidSchedulers.mainThread()).retryWhen(new RetryWhenNetworkException()).doOnSubscribe(new Consumer<Disposable>() {
-            @Override
-            public void accept(@NonNull Disposable disposable) throws Exception {
-                addSubscription(disposable, url);
-            }
-        }).subscribe(downLoadProgressObserver);
+        retrofit.create(DownLoadApi.class)
+                .downLoad("bytes=" + info.getLoadBytes() + "-", url)
+                .subscribeOn(Schedulers.io()).map(responseBody -> writeCaches(responseBody, url))
+                .unsubscribeOn(Schedulers.io()).observeOn(AndroidSchedulers.mainThread())
+                .retryWhen(new RetryWhenNetworkException())
+                .doOnSubscribe(disposable -> addSubscription(disposable, url))
+                .subscribe(downLoadProgressObserver);
     }
 
     private void addSubscription(Disposable disposable, String url) {

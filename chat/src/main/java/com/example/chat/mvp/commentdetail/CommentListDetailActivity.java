@@ -2,29 +2,32 @@ package com.example.chat.mvp.commentdetail;
 
 import android.app.Activity;
 import android.content.Intent;
-import android.support.v4.widget.SwipeRefreshLayout;
 import android.view.View;
 
-import com.example.chat.ChatApplication;
+import com.example.chat.base.ChatApplication;
 import com.example.chat.R;
 import com.example.chat.adapter.CommentDetailAdapter;
-import com.example.chat.base.Constant;
+import com.example.chat.base.ChatBaseActivity;
+import com.example.chat.base.ConstantUtil;
 import com.example.chat.bean.post.PublicCommentBean;
 import com.example.chat.bean.post.ReplyDetailContent;
 import com.example.chat.dagger.commentdetail.CommentDetailModule;
 import com.example.chat.dagger.commentdetail.DaggerCommentDetailComponent;
-import com.example.chat.base.SlideBaseActivity;
 import com.example.chat.mvp.UserDetail.UserDetailActivity;
 import com.example.commonlibrary.baseadapter.SuperRecyclerView;
 import com.example.commonlibrary.baseadapter.empty.EmptyLayout;
 import com.example.commonlibrary.baseadapter.foot.OnLoadMoreListener;
 import com.example.commonlibrary.baseadapter.listener.OnSimpleItemChildClickListener;
 import com.example.commonlibrary.baseadapter.manager.WrappedLinearLayoutManager;
-import com.example.commonlibrary.cusotomview.ToolBarOption;
+import com.example.commonlibrary.customview.ToolBarOption;
+import com.example.commonlibrary.customview.swipe.CustomSwipeRefreshLayout;
 
 import java.util.List;
 
 import javax.inject.Inject;
+
+import androidx.core.app.ActivityOptionsCompat;
+import androidx.core.util.Pair;
 
 /**
  * 项目名称:    NewFastFrame
@@ -33,12 +36,12 @@ import javax.inject.Inject;
  * QQ:         1981367757
  */
 
-public class CommentListDetailActivity extends SlideBaseActivity<List<ReplyDetailContent>, CommentDetailPresenter> implements SwipeRefreshLayout.OnRefreshListener, OnLoadMoreListener {
+public class CommentListDetailActivity extends ChatBaseActivity<List<ReplyDetailContent>, CommentDetailPresenter> implements CustomSwipeRefreshLayout.OnRefreshListener, OnLoadMoreListener {
 
 
     @Inject
     CommentDetailAdapter adapter;
-    private SwipeRefreshLayout refresh;
+    private CustomSwipeRefreshLayout refresh;
     private SuperRecyclerView display;
     private PublicCommentBean data;
 
@@ -48,19 +51,19 @@ public class CommentListDetailActivity extends SlideBaseActivity<List<ReplyDetai
         addOtherData(listDetailBeans);
         if (refresh.isRefreshing()) {
             adapter.refreshData(listDetailBeans);
-        }else {
+        } else {
             adapter.addData(listDetailBeans);
         }
     }
 
     private void addOtherData(List<ReplyDetailContent> listDetailBeans) {
         if (listDetailBeans != null) {
-            int size=listDetailBeans.size();
+            int size = listDetailBeans.size();
             for (int i = 0; i < size; i++) {
-                ReplyDetailContent item=listDetailBeans.get(i);
+                ReplyDetailContent item = listDetailBeans.get(i);
                 if (i % 2 == 0) {
                     item.setMsgType(ReplyDetailContent.TYPE_RIGHT);
-                }else {
+                } else {
                     item.setMsgType(ReplyDetailContent.TYPE_LEFT);
                 }
             }
@@ -84,8 +87,8 @@ public class CommentListDetailActivity extends SlideBaseActivity<List<ReplyDetai
 
     @Override
     protected void initView() {
-        refresh = (SwipeRefreshLayout) findViewById(R.id.refresh_activity_comment_list_detail_refresh);
-        display = (SuperRecyclerView) findViewById(R.id.srcv_activity_comment_list_detail_display);
+        refresh = findViewById(R.id.refresh_activity_comment_list_detail_refresh);
+        display = findViewById(R.id.srcv_activity_comment_list_detail_display);
         refresh.setOnRefreshListener(this);
     }
 
@@ -95,7 +98,7 @@ public class CommentListDetailActivity extends SlideBaseActivity<List<ReplyDetai
                 .getChatMainComponent())
                 .commentDetailModule(new CommentDetailModule(this))
                 .build().inject(this);
-        data = (PublicCommentBean) getIntent().getSerializableExtra(Constant.DATA);
+        data = (PublicCommentBean) getIntent().getSerializableExtra(ConstantUtil.DATA);
         display.setLayoutManager(new WrappedLinearLayoutManager(this));
         display.setAdapter(adapter);
         adapter.setOnItemClickListener(new OnSimpleItemChildClickListener() {
@@ -103,15 +106,15 @@ public class CommentListDetailActivity extends SlideBaseActivity<List<ReplyDetai
             @Override
             public void onItemChildClick(int position, View view, int id) {
                 if (id == R.id.riv_comment_detail_left_avatar
-                        ||id == R.id.riv_comment_detail_right_avatar) {
+                        || id == R.id.riv_comment_detail_right_avatar) {
                     UserDetailActivity.start(CommentListDetailActivity.this
-                            ,adapter
-                    .getData(position).getUid());
+                            , adapter
+                                    .getData(position).getUid(), ActivityOptionsCompat.makeSceneTransitionAnimation(CommentListDetailActivity.this, Pair.create(view, "avatar")));
                 }
             }
         });
-        runOnUiThread(() -> presenter.getCommentListDetailData(data,true));
-        ToolBarOption toolBarOption=new ToolBarOption();
+        runOnUiThread(() -> presenter.getCommentListDetailData(data, true));
+        ToolBarOption toolBarOption = new ToolBarOption();
         toolBarOption.setTitle("对话列表");
         toolBarOption.setNeedNavigation(true);
         setToolBar(toolBarOption);
@@ -119,7 +122,7 @@ public class CommentListDetailActivity extends SlideBaseActivity<List<ReplyDetai
 
     public static void start(Activity activity, PublicCommentBean data) {
         Intent intent = new Intent(activity, CommentListDetailActivity.class);
-        intent.putExtra(Constant.DATA, data);
+        intent.putExtra(ConstantUtil.DATA, data);
         activity.startActivity(intent);
     }
 
@@ -149,17 +152,14 @@ public class CommentListDetailActivity extends SlideBaseActivity<List<ReplyDetai
 
     @Override
     public void onRefresh() {
-        presenter.getCommentListDetailData( data,true);
+        presenter.getCommentListDetailData(data, true);
     }
 
     @Override
     public void loadMore() {
-        presenter.getCommentListDetailData(data,false);
+        presenter.getCommentListDetailData(data, false);
 
     }
-
-
-
 
 
 }

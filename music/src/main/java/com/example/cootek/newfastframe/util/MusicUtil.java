@@ -1,15 +1,11 @@
 package com.example.cootek.newfastframe.util;
 
-import android.app.Activity;
 import android.content.ContentUris;
-import android.content.Context;
 import android.net.Uri;
 import android.os.Environment;
 import android.text.TextUtils;
 
 import com.example.commonlibrary.BaseApplication;
-import com.example.commonlibrary.utils.CommonLogger;
-import com.example.commonlibrary.utils.DensityUtil;
 import com.example.commonlibrary.utils.FileUtil;
 import com.example.cootek.newfastframe.view.lrc.LrcRow;
 
@@ -37,38 +33,32 @@ public class MusicUtil {
     };
     public static final int FROM_RANK = 0;
     public static final String FROM = "from";
-    public static final int FROM_SONG_MENU = 1;
-    public static final String LIST_ID = "list_id";
-    public static final String RANK_TYPE = "TYPE";
     public static final int FROM_ALBUM = 2;
-    public static final String ALBUM_ID = "album_id";
-    public static final int FROM_RADIO = 3;
-    public static final String RADIO_ID = "RADIO_ID";
-    public static final int FROM_SINGER = 4;
-    public static final String TING_UID = "ting_uid";
-    public static final String SINGER_AVATAR = "singer_avatar";
     public static final String SHARED_PREFERENCES_NAME = "music";
     public static final String PLAY_MODE = "PLAY_MODE";
-    public static final String POSITION = "position";
-    public static final String SEEK = "seek";
     public static final String BASE_URL = "http://tingapi.ting.baidu.com/v1/restserver/ting/";
-    public static final String SONG_COUNT = "count";
+    public static final String DATA = "data";
+    public static final int FROM_RECOMMEND = 1;
+    public static final int FROM_BOTTOM_ALBUM = 3;
+    public static final int BASE_TYPE_SEARCH_CONTENT = 1;
+    public static final int FROM_SINGER = 4;
+    public static final String ARTIST_ID = "ARTIST_ID";
+    public static final int BASE_TYPE_ALBUM_CONTENT = 2;
+    public static final int FROM_LOCAL = 1;
+    public static final int FROM_RECENT = 2;
 
     public static Uri getAlbumArtUri(long paramInt) {
         return ContentUris.withAppendedId(Uri.parse("content://media/exjava.lang.Stringternal/audio/albumart"), paramInt);
     }
 
 
-    public static String musicLyricDir = FileUtil.getDefaultCacheFile(BaseApplication.getInstance()).getAbsolutePath() + "/music/lyric/";
-
     public static String getLyricPath(long longId) {
-        return getMusicLrcCacheDir() + longId;
-//        return musicLyricDir + longId + "";
+        return FileUtil.getDefaultCacheFile(BaseApplication.getInstance()).getAbsolutePath() + "/music/lrc" + longId;
     }
 
 
     public static String getMusicLrcCacheDir() {
-        return Environment.getExternalStorageDirectory().getAbsolutePath() + "/music/lrc";
+        return FileUtil.getDefaultCacheFile(BaseApplication.getInstance()).getAbsolutePath() + "/music/lrc";
     }
 
 
@@ -146,18 +136,18 @@ public class MusicUtil {
         sb.append(":");
         long s = (milliSecs % (60 * 1000)) / 1000;
         sb.append(s < 10 ? "0" + s : s);
-        return sb.toString();
+        String content = sb.toString();
+        return content.equals("00:00") ? null : content;
     }
 
-    public static String getRealUrl(String uri, Context context) {
+    public static String getRealUrl(String uri, int size) {
         int index = uri.lastIndexOf("@s_");
         if (index > 0) {
-            int screenWidth = DensityUtil.getScreenWidth(context);
-            int screenHeight = DensityUtil.getScreenHeight(context);
             uri = uri.substring(0, index);
-            uri = uri + "@s_1,w_" + screenWidth + ",h_" + screenHeight;
+            uri = uri + "@s_1,w_" + size + ",h_" + size;
         }
-        CommonLogger.e("url:::::" + uri);
         return uri;
     }
+
+
 }

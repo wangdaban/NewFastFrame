@@ -1,15 +1,14 @@
 package com.example.news.dagger;
 
 
-import android.support.annotation.Nullable;
 
 import com.example.commonlibrary.BaseApplication;
 import com.example.commonlibrary.dagger.scope.PerApplication;
 import com.example.commonlibrary.net.download.DaoSession;
 import com.example.news.MainRepositoryManager;
-import com.example.news.interceptor.CacheControlInterceptor;
-import com.example.news.interceptor.NewsInterceptor;
-import com.example.news.util.NewsUtil;
+import com.example.video.interceptor.CacheControlInterceptor;
+import com.example.video.interceptor.NewsInterceptor;
+import com.example.video.util.NewsUtil;
 import com.google.gson.Gson;
 
 import java.io.File;
@@ -17,6 +16,7 @@ import java.util.concurrent.TimeUnit;
 
 import javax.inject.Named;
 
+import androidx.annotation.Nullable;
 import dagger.Module;
 import dagger.Provides;
 import okhttp3.Cache;
@@ -53,7 +53,7 @@ public class NewsModule {
     @Provides
     @Named("news")
     @PerApplication
-    public OkHttpClient provideOkHttpClient(@Named("news")NewsInterceptor interceptor){
+    public OkHttpClient provideOkHttpClient(@Named("news") NewsInterceptor interceptor){
         Cache cache=new Cache(new File(BaseApplication.getInstance().getCacheDir(),"news"),
                 1024*1024*100);
         OkHttpClient.Builder builder=new OkHttpClient.Builder().cache(cache);

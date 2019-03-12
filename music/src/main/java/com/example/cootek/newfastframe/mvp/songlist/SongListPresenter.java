@@ -1,8 +1,9 @@
 package com.example.cootek.newfastframe.mvp.songlist;
 
-import com.example.commonlibrary.baseadapter.empty.EmptyLayout;
-import com.example.commonlibrary.bean.music.SingerListBean;
-import com.example.commonlibrary.bean.music.SingerListBeanDao;
+import android.text.TextUtils;
+
+import com.example.commonlibrary.bean.music.MusicPlayBean;
+import com.example.commonlibrary.mvp.model.DefaultModel;
 import com.example.commonlibrary.mvp.presenter.BasePresenter;
 import com.example.commonlibrary.mvp.view.IView;
 import com.example.commonlibrary.utils.CommonLogger;
@@ -11,111 +12,106 @@ import com.example.cootek.newfastframe.bean.AlbumBean;
 import com.example.cootek.newfastframe.bean.ArtistSongsBean;
 import com.example.cootek.newfastframe.bean.DownLoadMusicBean;
 import com.example.cootek.newfastframe.bean.RankListBean;
+import com.example.cootek.newfastframe.bean.RelatedSongBean;
 import com.example.cootek.newfastframe.bean.SongMenuBean;
 
+import java.util.ArrayList;
 import java.util.List;
 
+import io.reactivex.Observable;
+import io.reactivex.ObservableSource;
 import io.reactivex.Observer;
+import io.reactivex.SingleObserver;
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.annotations.NonNull;
 import io.reactivex.disposables.Disposable;
+import io.reactivex.functions.Function;
 import io.reactivex.schedulers.Schedulers;
 
 /**
  * Created by COOTEK on 2017/8/16.
  */
 
-public class SongListPresenter extends BasePresenter<IView<Object>, SongListModel> {
+public class SongListPresenter extends BasePresenter<IView<Object>, DefaultModel> {
     private int num = 0;
 
-    public SongListPresenter(IView<Object> iView, SongListModel baseModel) {
+    public SongListPresenter(IView<Object> iView, DefaultModel baseModel) {
         super(iView, baseModel);
         num = 0;
     }
 
 
-    public void getRankDetailInfo(final int type, final boolean isRefresh, final boolean isShowLoading) {
+    public void getRankDetailInfo(final int type, final boolean isRefresh) {
         if (isRefresh) {
             num = 0;
         }
-        if (isShowLoading) {
+        if (isRefresh) {
             iView.showLoading("");
         }
         num++;
         baseModel.getRepositoryManager().getApi(MusicApi.class).getRankList(type, 15, (num - 1) * 15)
-                .subscribeOn(Schedulers.io())
+                .subscribeOn(Schedulers.io()).observeOn(AndroidSchedulers.mainThread()).doOnNext(rankListBean -> {
+            iView.updateData(rankListBean);
+            if (rankListBean.getError_code() != 22000 || rankListBean.getSong_list() == null) {
+                num--;
+            }
+        }).flatMap((Function<RankListBean, ObservableSource<DownLoadMusicBean>>) rankListBean -> {
+            if (rankListBean.getError_code() == 22000 && rankListBean.getSong_list() != null) {
+                List<Observable<DownLoadMusicBean>> list = new ArrayList<>();
+                for (int i = 0; i < rankListBean.getSong_list().size(); i++) {
+                    list.add(baseModel.getRepositoryManager().getApi(MusicApi.class).getDownLoadMusicInfo(rankListBean.getSong_list().get(i).getSong_id())
+                            .subscribeOn(Schedulers.io()));
+                }
+                return Observable.mergeArray(list.toArray(new Observable[]{}));
+            } else {
+                return null;
+            }
+        }).map(downLoadMusicBean -> {
+            MusicPlayBean musicPlayBean = new MusicPlayBean();
+            musicPlayBean.setIsLocal(false);
+            musicPlayBean.setSongId(Long.parseLong(downLoadMusicBean.getSonginfo().getSong_id()));
+            musicPlayBean.setAlbumId(Long.parseLong(downLoadMusicBean.getSonginfo().getAlbum_id()));
+            musicPlayBean.setAlbumName(downLoadMusicBean.getSonginfo().getAlbum_title());
+
+            if (!TextUtils.isEmpty(downLoadMusicBean.getSonginfo().getPic_huge())) {
+                musicPlayBean.setAlbumUrl(downLoadMusicBean.getSonginfo().getPic_huge());
+            } else if (!TextUtils.isEmpty(downLoadMusicBean.getSonginfo().getPic_premium())) {
+                musicPlayBean.setAlbumUrl(downLoadMusicBean.getSonginfo().getPic_premium());
+            } else if (!TextUtils.isEmpty(downLoadMusicBean.getSonginfo().getPic_big())) {
+                musicPlayBean.setAlbumUrl(downLoadMusicBean.getSonginfo().getPic_big());
+            } else if (!TextUtils.isEmpty(downLoadMusicBean.getSonginfo().getPic_small())) {
+                musicPlayBean.setAlbumUrl(downLoadMusicBean.getSonginfo().getPic_small());
+            } else if (!TextUtils.isEmpty(downLoadMusicBean.getSonginfo().getPic_radio())) {
+                musicPlayBean.setAlbumUrl(downLoadMusicBean.getSonginfo().getPic_radio());
+            }
+            musicPlayBean.setArtistId(downLoadMusicBean.getSonginfo().getArtist_id());
+            musicPlayBean.setArtistName(downLoadMusicBean.getSonginfo().getAuthor());
+            musicPlayBean.setLrcUrl(downLoadMusicBean.getSonginfo().getLrclink());
+            musicPlayBean.setSongUrl(downLoadMusicBean.getBitrate().getFile_link());
+            musicPlayBean.setSongName(downLoadMusicBean.getSonginfo().getTitle());
+            musicPlayBean.setTingId(downLoadMusicBean.getSonginfo().getTing_uid());
+            CommonLogger.e(downLoadMusicBean.toString());
+            return musicPlayBean;
+        }).toList(15)
                 .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(new Observer<RankListBean>() {
+                .subscribe(new SingleObserver<List<MusicPlayBean>>() {
                     @Override
-                    public void onSubscribe(@NonNull Disposable d) {
-                        CommonLogger.e("onSubscribe");
+                    public void onSubscribe(Disposable d) {
                         addDispose(d);
                     }
 
                     @Override
-                    public void onNext(@NonNull RankListBean rankListBean) {
-                        CommonLogger.e("onNext");
-                        if (rankListBean.getError_code() == 22000) {
-                            if (rankListBean.getSong_list() != null) {
-                                for (RankListBean.SongListBean songLitBean :
-                                        rankListBean.getSong_list()) {
-                                    getMusicDetailInfo(songLitBean.getSong_id());
-                                }
-                            }
-                            iView.updateData(rankListBean);
-                        } else {
-                            onError(null);
-                        }
-                    }
-
-                    @Override
-                    public void onError(@NonNull Throwable e) {
-                        iView.showError(null, new EmptyLayout.OnRetryListener() {
-                            @Override
-                            public void onRetry() {
-                                num--;
-                                getRankDetailInfo(type, isRefresh, isShowLoading);
-                            }
-                        });
-                        CommonLogger.e(e);
-                    }
-
-                    @Override
-                    public void onComplete() {
+                    public void onSuccess(List<MusicPlayBean> musicPlayBeans) {
+                        iView.updateData(musicPlayBeans);
+                        getBaseModel().getRepositoryManager().getDaoSession()
+                                .getMusicPlayBeanDao().insertOrReplaceInTx(musicPlayBeans);
                         iView.hideLoading();
-                        CommonLogger.e("onComplete");
-                    }
-                });
-    }
-
-
-    private void getMusicDetailInfo(String songId) {
-        baseModel.getRepositoryManager().getApi(MusicApi.class).getDownLoadMusicInfo(songId)
-                .subscribeOn(Schedulers.io()).observeOn(AndroidSchedulers.mainThread())
-                .subscribe(new Observer<DownLoadMusicBean>() {
-                    @Override
-                    public void onSubscribe(@NonNull Disposable d) {
-                        addDispose(d);
                     }
 
                     @Override
-                    public void onNext(@NonNull DownLoadMusicBean downLoadMusicBean) {
-                        if (downLoadMusicBean == null) {
-                            CommonLogger.e("为空拉拉阿拉");
-                        }
-                        if (downLoadMusicBean != null) {
-                            iView.updateData(downLoadMusicBean);
-                        }
-                    }
-
-                    @Override
-                    public void onError(@NonNull Throwable e) {
-                        CommonLogger.e(e);
-                    }
-
-                    @Override
-                    public void onComplete() {
-
+                    public void onError(Throwable e) {
+                        iView.showError(e.getMessage(), null);
+                        num--;
                     }
                 });
     }
@@ -143,7 +139,7 @@ public class SongListPresenter extends BasePresenter<IView<Object>, SongListMode
                             iView.updateData(songMenuBean);
                             for (SongMenuBean.ContentBean contentBean :
                                     songMenuBean.getContent()) {
-                                getMusicDetailInfo(contentBean.getSong_id());
+                                //                                getMusicDetailInfo(contentBean.getSong_id());
                             }
                         } else {
                             onError(null);
@@ -152,13 +148,8 @@ public class SongListPresenter extends BasePresenter<IView<Object>, SongListMode
 
                     @Override
                     public void onError(@NonNull Throwable e) {
-                        iView.showError(null, new EmptyLayout.OnRetryListener() {
-                            @Override
-                            public void onRetry() {
-                                num--;
-                                getSongMenuData(listId, isRefresh, isShowLoading);
-                            }
-                        });
+                        iView.showError(e.getMessage(), null);
+                        num--;
                     }
 
                     @Override
@@ -170,104 +161,228 @@ public class SongListPresenter extends BasePresenter<IView<Object>, SongListMode
     }
 
 
-    public void getAlbumInfoData(final String albumId, final boolean isRefresh, final boolean isShowLoading) {
+    public void getAlbumInfoData(final String albumId, final boolean isRefresh) {
         if (isRefresh) {
             num = 0;
         }
-        if (isShowLoading) {
+        if (isRefresh) {
             iView.showLoading("");
         }
         num++;
         baseModel.getRepositoryManager().getApi(MusicApi.class).getAlbumData(albumId)
                 .subscribeOn(Schedulers.io()).observeOn(AndroidSchedulers.mainThread())
-                .subscribe(new Observer<AlbumBean>() {
+                .doOnNext(albumBean -> {
+                    if (albumBean.getSonglist() == null || albumBean.getSonglist().size() == 0) {
+                        num--;
+                    }
+                    iView.updateData(albumBean);
+                })
+                .flatMap((Function<AlbumBean, ObservableSource<DownLoadMusicBean>>) albumBean -> {
+                    if (albumBean.getSonglist() != null && albumBean.getSonglist().size() > 0) {
+                        List<Observable<DownLoadMusicBean>> list = new ArrayList<>();
+                        for (int i = 0; i < albumBean.getSonglist().size(); i++) {
+                            list.add(baseModel.getRepositoryManager().getApi(MusicApi.class).getDownLoadMusicInfo(albumBean.getSonglist().get(i).getSong_id())
+                                    .subscribeOn(Schedulers.io()));
+                        }
+                        return Observable.mergeArray(list.toArray(new Observable[]{}));
+                    } else {
+                        return null;
+                    }
+                }).map(downLoadMusicBean -> {
+            MusicPlayBean musicPlayBean = new MusicPlayBean();
+            musicPlayBean.setIsLocal(false);
+            musicPlayBean.setSongId(Long.parseLong(downLoadMusicBean.getSonginfo().getSong_id()));
+            musicPlayBean.setAlbumId(Long.parseLong(downLoadMusicBean.getSonginfo().getAlbum_id()));
+            musicPlayBean.setAlbumName(downLoadMusicBean.getSonginfo().getAlbum_title());
+            if (!TextUtils.isEmpty(downLoadMusicBean.getSonginfo().getPic_huge())) {
+                musicPlayBean.setAlbumUrl(downLoadMusicBean.getSonginfo().getPic_huge());
+            } else if (!TextUtils.isEmpty(downLoadMusicBean.getSonginfo().getPic_premium())) {
+                musicPlayBean.setAlbumUrl(downLoadMusicBean.getSonginfo().getPic_premium());
+            } else if (!TextUtils.isEmpty(downLoadMusicBean.getSonginfo().getPic_big())) {
+                musicPlayBean.setAlbumUrl(downLoadMusicBean.getSonginfo().getPic_big());
+            } else if (!TextUtils.isEmpty(downLoadMusicBean.getSonginfo().getPic_small())) {
+                musicPlayBean.setAlbumUrl(downLoadMusicBean.getSonginfo().getPic_small());
+            } else if (!TextUtils.isEmpty(downLoadMusicBean.getSonginfo().getPic_radio())) {
+                musicPlayBean.setAlbumUrl(downLoadMusicBean.getSonginfo().getPic_radio());
+            }
+            musicPlayBean.setArtistId(downLoadMusicBean.getSonginfo().getArtist_id());
+            musicPlayBean.setArtistName(downLoadMusicBean.getSonginfo().getAuthor());
+            musicPlayBean.setLrcUrl(downLoadMusicBean.getSonginfo().getLrclink());
+            musicPlayBean.setSongUrl(downLoadMusicBean.getBitrate().getFile_link());
+            musicPlayBean.setSongName(downLoadMusicBean.getSonginfo().getTitle());
+            musicPlayBean.setTingId(downLoadMusicBean.getSonginfo().getTing_uid());
+            CommonLogger.e(downLoadMusicBean.toString());
+            return musicPlayBean;
+        }).toList(20)
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new SingleObserver<List<MusicPlayBean>>() {
                     @Override
-                    public void onSubscribe(@NonNull Disposable d) {
+                    public void onSubscribe(Disposable d) {
                         addDispose(d);
                     }
 
                     @Override
-                    public void onNext(@NonNull AlbumBean albumBean) {
-                        if (albumBean != null && albumBean.getSonglist() != null) {
-                            iView.updateData(albumBean);
-                            for (AlbumBean.SonglistBean bean :
-                                    albumBean.getSonglist()) {
-                                getMusicDetailInfo(bean.getSong_id());
-                            }
-                        } else {
-                            onError(null);
-                        }
-                    }
-
-                    @Override
-                    public void onError(@NonNull Throwable e) {
-                        iView.showError(null, new EmptyLayout.OnRetryListener() {
-                            @Override
-                            public void onRetry() {
-                                num--;
-                                getAlbumInfoData(albumId, isRefresh, isShowLoading);
-                            }
-                        });
-                    }
-
-                    @Override
-                    public void onComplete() {
+                    public void onSuccess(List<MusicPlayBean> musicPlayBeans) {
+                        iView.updateData(musicPlayBeans);
+                        getBaseModel().getRepositoryManager().getDaoSession()
+                                .getMusicPlayBeanDao().insertOrReplaceInTx(musicPlayBeans);
                         iView.hideLoading();
+                    }
+
+                    @Override
+                    public void onError(Throwable e) {
+                        iView.showError(e.getMessage(), null);
+                        num--;
                     }
                 });
 
     }
 
-    public void getSingerSongs(final String tingId, final boolean isRefresh, final boolean isShowLoading) {
+    public void getRecommendData(String songId, boolean isRefresh) {
         if (isRefresh) {
             num = 0;
         }
-        if (isShowLoading) {
+        if (isRefresh) {
             iView.showLoading("");
         }
         num++;
-        baseModel.getRepositoryManager().getApi(MusicApi.class).getArtistSongs(tingId, (num - 1) * 10, 10)
-                .subscribeOn(Schedulers.io()).observeOn(AndroidSchedulers.mainThread())
-                .subscribe(new Observer<ArtistSongsBean>() {
-                    @Override
-                    public void onSubscribe(@NonNull Disposable d) {
-                        addDispose(d);
-                    }
-
-                    @Override
-                    public void onNext(@NonNull ArtistSongsBean artistSongsBean) {
-                        if (artistSongsBean != null && artistSongsBean.getSonglist() != null) {
-                            List<SingerListBean> result = baseModel.getRepositoryManager().getDaoSession().getSingerListBeanDao()
-                                    .queryBuilder().where(SingerListBeanDao.Properties.TingId.eq(tingId)).list();
-                            if (result.size() > 0) {
-//                                更新歌手信息
-                                iView.updateData(result.get(0));
-                            }
-//                            更新歌手歌曲信息
-                            for (ArtistSongsBean.SonglistBean bean :
-                                    artistSongsBean.getSonglist()) {
-                                getMusicDetailInfo(bean.getSong_id());
-                            }
-                        } else {
-                            onError(null);
+        baseModel.getRepositoryManager().getApi(MusicApi.class)
+                .getReCommendSongList(songId, 20).subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread()).doOnNext(artistSongsBean -> {
+            iView.updateData(artistSongsBean);
+            if (artistSongsBean.getError_code() != 22000 || artistSongsBean.getResult() == null
+                    || artistSongsBean.getResult().getList() == null || artistSongsBean.getResult()
+                    .getList().size() == 0) {
+                num--;
+            }
+        })
+                .flatMap((Function<RelatedSongBean, ObservableSource<DownLoadMusicBean>>) relatedSongBean -> {
+                    if (relatedSongBean.getResult() != null && relatedSongBean.getResult().getList() != null && relatedSongBean
+                            .getResult().getList().size() > 0) {
+                        List<Observable<DownLoadMusicBean>> list = new ArrayList<>();
+                        for (int i = 0; i < relatedSongBean.getResult().getList().size(); i++) {
+                            list.add(baseModel.getRepositoryManager().getApi(MusicApi.class).getDownLoadMusicInfo(relatedSongBean.getResult().getList().get(i).getSong_id())
+                                    .subscribeOn(Schedulers.io()));
                         }
+                        return Observable.mergeArray(list.toArray(new Observable[]{}));
+                    } else {
+                        return null;
                     }
+                }).map(downLoadMusicBean -> {
+            MusicPlayBean musicPlayBean = new MusicPlayBean();
+            musicPlayBean.setIsLocal(false);
+            musicPlayBean.setSongId(Long.parseLong(downLoadMusicBean.getSonginfo().getSong_id()));
+            musicPlayBean.setAlbumId(Long.parseLong(downLoadMusicBean.getSonginfo().getAlbum_id()));
+            musicPlayBean.setAlbumName(downLoadMusicBean.getSonginfo().getAlbum_title());
+            if (!TextUtils.isEmpty(downLoadMusicBean.getSonginfo().getPic_huge())) {
+                musicPlayBean.setAlbumUrl(downLoadMusicBean.getSonginfo().getPic_huge());
+            } else if (!TextUtils.isEmpty(downLoadMusicBean.getSonginfo().getPic_premium())) {
+                musicPlayBean.setAlbumUrl(downLoadMusicBean.getSonginfo().getPic_premium());
+            } else if (!TextUtils.isEmpty(downLoadMusicBean.getSonginfo().getPic_big())) {
+                musicPlayBean.setAlbumUrl(downLoadMusicBean.getSonginfo().getPic_big());
+            } else if (!TextUtils.isEmpty(downLoadMusicBean.getSonginfo().getPic_small())) {
+                musicPlayBean.setAlbumUrl(downLoadMusicBean.getSonginfo().getPic_small());
+            } else if (!TextUtils.isEmpty(downLoadMusicBean.getSonginfo().getPic_radio())) {
+                musicPlayBean.setAlbumUrl(downLoadMusicBean.getSonginfo().getPic_radio());
+            }
+            musicPlayBean.setArtistId(downLoadMusicBean.getSonginfo().getArtist_id());
+            musicPlayBean.setArtistName(downLoadMusicBean.getSonginfo().getAuthor());
+            musicPlayBean.setLrcUrl(downLoadMusicBean.getSonginfo().getLrclink());
+            musicPlayBean.setSongUrl(downLoadMusicBean.getBitrate().getFile_link());
+            musicPlayBean.setSongName(downLoadMusicBean.getSonginfo().getTitle());
+            musicPlayBean.setTingId(downLoadMusicBean.getSonginfo().getTing_uid());
+            CommonLogger.e(downLoadMusicBean.toString());
+            return musicPlayBean;
+        }).toList(20).observeOn(AndroidSchedulers.mainThread()).subscribe(new SingleObserver<List<MusicPlayBean>>() {
+            @Override
+            public void onSubscribe(Disposable d) {
+                addDispose(d);
+            }
 
-                    @Override
-                    public void onError(@NonNull Throwable e) {
-                        iView.showError(null, new EmptyLayout.OnRetryListener() {
-                            @Override
-                            public void onRetry() {
-                                num--;
-                                getSingerSongs(tingId, isRefresh, isShowLoading);
-                            }
-                        });
-                    }
+            @Override
+            public void onSuccess(List<MusicPlayBean> musicPlayBeans) {
+                iView.updateData(musicPlayBeans);
+                getBaseModel().getRepositoryManager().getDaoSession()
+                        .getMusicPlayBeanDao().insertOrReplaceInTx(musicPlayBeans);
+                iView.hideLoading();
+            }
 
-                    @Override
-                    public void onComplete() {
-                        iView.hideLoading();
+
+            @Override
+            public void onError(Throwable e) {
+                iView.showError(e.getMessage(), null);
+                num--;
+            }
+
+        });
+    }
+
+    public void getSingerMusicData(String uid, boolean isRefresh) {
+        if (isRefresh) {
+            num = 0;
+        }
+        if (isRefresh) {
+            iView.showLoading("");
+        }
+        num++;
+        baseModel.getRepositoryManager().getApi(MusicApi.class)
+                .getArtistSongs(uid, (num - 1) * 10, 10)
+                .subscribeOn(Schedulers.io())
+                .flatMap((Function<ArtistSongsBean, ObservableSource<DownLoadMusicBean>>) artistSongsBean -> {
+                    if (artistSongsBean.getSonglist() != null && artistSongsBean.getSonglist().size() > 0) {
+                        List<Observable<DownLoadMusicBean>> list = new ArrayList<>();
+                        for (int i = 0; i < artistSongsBean.getSonglist().size(); i++) {
+                            list.add(baseModel.getRepositoryManager().getApi(MusicApi.class).getDownLoadMusicInfo(artistSongsBean.getSonglist().get(i).getSong_id())
+                                    .subscribeOn(Schedulers.io()));
+                        }
+                        return Observable.mergeArray(list.toArray(new Observable[]{}));
+                    } else {
+                        return null;
                     }
-                });
+                }).map(downLoadMusicBean -> {
+            MusicPlayBean musicPlayBean = new MusicPlayBean();
+            musicPlayBean.setIsLocal(false);
+            musicPlayBean.setSongId(Long.parseLong(downLoadMusicBean.getSonginfo().getSong_id()));
+            musicPlayBean.setAlbumId(Long.parseLong(downLoadMusicBean.getSonginfo().getAlbum_id()));
+            musicPlayBean.setAlbumName(downLoadMusicBean.getSonginfo().getAlbum_title());
+            if (!TextUtils.isEmpty(downLoadMusicBean.getSonginfo().getPic_huge())) {
+                musicPlayBean.setAlbumUrl(downLoadMusicBean.getSonginfo().getPic_huge());
+            } else if (!TextUtils.isEmpty(downLoadMusicBean.getSonginfo().getPic_premium())) {
+                musicPlayBean.setAlbumUrl(downLoadMusicBean.getSonginfo().getPic_premium());
+            } else if (!TextUtils.isEmpty(downLoadMusicBean.getSonginfo().getPic_big())) {
+                musicPlayBean.setAlbumUrl(downLoadMusicBean.getSonginfo().getPic_big());
+            } else if (!TextUtils.isEmpty(downLoadMusicBean.getSonginfo().getPic_small())) {
+                musicPlayBean.setAlbumUrl(downLoadMusicBean.getSonginfo().getPic_small());
+            } else if (!TextUtils.isEmpty(downLoadMusicBean.getSonginfo().getPic_radio())) {
+                musicPlayBean.setAlbumUrl(downLoadMusicBean.getSonginfo().getPic_radio());
+            }
+            musicPlayBean.setArtistId(downLoadMusicBean.getSonginfo().getArtist_id());
+            musicPlayBean.setArtistName(downLoadMusicBean.getSonginfo().getAuthor());
+            musicPlayBean.setLrcUrl(downLoadMusicBean.getSonginfo().getLrclink());
+            musicPlayBean.setSongUrl(downLoadMusicBean.getBitrate().getFile_link());
+            musicPlayBean.setSongName(downLoadMusicBean.getSonginfo().getTitle());
+            musicPlayBean.setTingId(downLoadMusicBean.getSonginfo().getTing_uid());
+            CommonLogger.e(downLoadMusicBean.toString());
+            return musicPlayBean;
+        }).toList(20).observeOn(AndroidSchedulers.mainThread()).subscribe(new SingleObserver<List<MusicPlayBean>>() {
+            @Override
+            public void onSubscribe(Disposable d) {
+                addDispose(d);
+            }
+
+            @Override
+            public void onSuccess(List<MusicPlayBean> musicPlayBeans) {
+                iView.updateData(musicPlayBeans);
+                getBaseModel().getRepositoryManager().getDaoSession()
+                        .getMusicPlayBeanDao().insertOrReplaceInTx(musicPlayBeans);
+                iView.hideLoading();
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                iView.showError(e.getMessage(), null);
+                num--;
+            }
+        });
     }
 }

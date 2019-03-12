@@ -2,7 +2,6 @@ package com.example.chat.adapter;
 
 
 import com.example.chat.R;
-import com.example.chat.bean.User;
 import com.example.commonlibrary.baseadapter.adapter.BaseRecyclerAdapter;
 import com.example.commonlibrary.baseadapter.viewholder.BaseWrappedViewHolder;
 import com.example.commonlibrary.bean.chat.UserEntity;
@@ -24,7 +23,7 @@ public class BlackAdapter extends BaseRecyclerAdapter<UserEntity, BaseWrappedVie
 
         @Override
         protected void convert(BaseWrappedViewHolder holder, UserEntity data) {
-                holder.setText(R.id.tv_black_list_item_nick, data.getNick())
+                holder.setText(R.id.tv_black_list_item_nick, data.getName())
                         .setImageUrl(R.id.riv_black_list_item_avatar, data.getAvatar());
         }
 }

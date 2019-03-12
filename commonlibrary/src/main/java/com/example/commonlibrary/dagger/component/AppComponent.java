@@ -1,15 +1,12 @@
 package com.example.commonlibrary.dagger.component;
 
-import android.app.Application;
 import android.content.SharedPreferences;
-import android.os.Bundle;
 
-import com.example.commonlibrary.dagger.module.AppConfigModule;
-import com.example.commonlibrary.dagger.module.AppModule;
+import com.example.commonlibrary.bean.chat.DaoSession;
 import com.example.commonlibrary.dagger.module.GlobalConfigModule;
 import com.example.commonlibrary.imageloader.ImageLoader;
 import com.example.commonlibrary.manager.ActivityManager;
-import com.example.commonlibrary.net.download.DaoSession;
+import com.example.commonlibrary.repository.DefaultRepositoryManager;
 import com.google.gson.Gson;
 
 import java.io.File;
@@ -25,12 +22,8 @@ import retrofit2.Retrofit;
  */
 
 @Singleton
-@Component(modules = {AppModule.class, GlobalConfigModule.class, AppConfigModule.class})
+@Component(modules = GlobalConfigModule.class)
 public interface AppComponent {
-    public Application getApplication();
-
-    public Bundle getBundle();
-
     public ImageLoader getImageLoader();
 
     public Gson getGson();
@@ -49,4 +42,5 @@ public interface AppComponent {
 
     public SharedPreferences getSharedPreferences();
 
+    public Retrofit.Builder getRetrofitBuilder();
 }

@@ -1,8 +1,7 @@
 package com.example.chat.mvp.commentlist;
 
 import com.example.chat.base.AppBasePresenter;
-import com.example.chat.base.Constant;
-import com.example.chat.bean.post.CommentDetailBean;
+import com.example.chat.base.ConstantUtil;
 import com.example.chat.bean.post.PostDataBean;
 import com.example.chat.bean.post.PublicPostBean;
 import com.example.chat.bean.post.PublicCommentBean;
@@ -16,6 +15,7 @@ import com.example.chat.util.TimeUtil;
 import com.example.commonlibrary.BaseApplication;
 import com.example.commonlibrary.bean.chat.PostCommentEntity;
 import com.example.commonlibrary.bean.chat.PostCommentEntityDao;
+import com.example.commonlibrary.mvp.model.DefaultModel;
 import com.example.commonlibrary.mvp.view.IView;
 import com.example.commonlibrary.rxbus.RxBusManager;
 import com.example.commonlibrary.utils.CommonLogger;
@@ -48,11 +48,11 @@ import rx.Subscription;
  * QQ:         1981367757
  */
 
-public class CommentListPresenter extends AppBasePresenter<IView<List<PublicCommentBean>>, CommentListModel> {
+public class CommentListPresenter extends AppBasePresenter<IView<List<PublicCommentBean>>, DefaultModel> {
     private Gson gson;
 
 
-    public CommentListPresenter(IView<List<PublicCommentBean>> iView, CommentListModel baseModel) {
+    public CommentListPresenter(IView<List<PublicCommentBean>> iView, DefaultModel baseModel) {
         super(iView, baseModel);
         gson = BaseApplication.getAppComponent().getGson();
     }
@@ -75,7 +75,7 @@ public class CommentListPresenter extends AppBasePresenter<IView<List<PublicComm
                             }
                         }
                         String strTime = TimeUtil.getTime(time, "yyyy-MM-dd HH:mm:ss");
-                        String key = Constant.UPDATE_TIME_COMMENT + postId;
+                        String key = ConstantUtil.UPDATE_TIME_COMMENT + postId;
                         BaseApplication.getAppComponent()
                                 .getSharedPreferences().edit()
                                 .putString(key, strTime)
@@ -91,12 +91,12 @@ public class CommentListPresenter extends AppBasePresenter<IView<List<PublicComm
                             .queryBuilder();
                     queryBuilder.where(PostCommentEntityDao.Properties.Pid.eq(postId));
                     if (isRefresh) {
-                        String key = Constant.UPDATE_TIME_COMMENT + postId;
+                        String key = ConstantUtil.UPDATE_TIME_COMMENT + postId;
                         String updateTime = BaseApplication
                                 .getAppComponent().getSharedPreferences()
                                 .getString(key, null);
                         queryBuilder.where(PostCommentEntityDao.Properties.CreatedTime.gt(currentTime));
-                        if (updateTime != null && !time.equals(Constant.REFRESH_TIME)) {
+                        if (updateTime != null && !time.equals(ConstantUtil.REFRESH_TIME)) {
                             long resultTime = TimeUtil.getTime(updateTime, "yyyy-MM-dd HH:mm:ss");
                             queryBuilder.where(PostCommentEntityDao.Properties.UpdatedTime.gt(resultTime));
                         } else {
@@ -110,7 +110,7 @@ public class CommentListPresenter extends AppBasePresenter<IView<List<PublicComm
                     queryBuilder.limit(10);
                     List<PostCommentEntity> entityList
                             = queryBuilder.build().list();
-                    List<PublicCommentBean>  result=new ArrayList<>(entityList.size());
+                    List<PublicCommentBean> result = new ArrayList<>(entityList.size());
                     for (PostCommentEntity item :
                             entityList) {
                         result.add(MsgManager.getInstance().cover(item));
@@ -128,14 +128,14 @@ public class CommentListPresenter extends AppBasePresenter<IView<List<PublicComm
         addSubscription(MsgManager.getInstance().updatePublicPostBean(data, new OnCreatePublicPostListener() {
             @Override
             public void onSuccess(PublicPostBean publicPostBean) {
-                publicPostBean.setSendStatus(Constant.SEND_STATUS_SUCCESS);
+                publicPostBean.setSendStatus(ConstantUtil.SEND_STATUS_SUCCESS);
                 UserDBManager.getInstance().addOrUpdatePost(publicPostBean);
                 RxBusManager.getInstance().post(new UpdatePostEvent(publicPostBean));
             }
 
             @Override
             public void onFailed(String errorMsg, int errorCode, PublicPostBean publicPostBean) {
-                publicPostBean.setSendStatus(Constant.SEND_STATUS_FAILED);
+                publicPostBean.setSendStatus(ConstantUtil.SEND_STATUS_FAILED);
                 UserDBManager.getInstance().addOrUpdatePost(publicPostBean);
                 RxBusManager.getInstance().post(new UpdatePostEvent(publicPostBean));
             }
@@ -147,7 +147,7 @@ public class CommentListPresenter extends AppBasePresenter<IView<List<PublicComm
         addSubscription(MsgManager.getInstance().reSendPublicPostBean(data, new OnCreatePublicPostListener() {
             @Override
             public void onSuccess(PublicPostBean publicPostBean) {
-                publicPostBean.setSendStatus(Constant.SEND_STATUS_SUCCESS);
+                publicPostBean.setSendStatus(ConstantUtil.SEND_STATUS_SUCCESS);
                 UserDBManager.getInstance()
                         .getDaoSession().getPublicPostEntityDao()
                         .deleteByKey(objectId);
@@ -157,7 +157,7 @@ public class CommentListPresenter extends AppBasePresenter<IView<List<PublicComm
 
             @Override
             public void onFailed(String errorMsg, int errorCode, PublicPostBean publicPostBean) {
-                publicPostBean.setSendStatus(Constant.SEND_STATUS_FAILED);
+                publicPostBean.setSendStatus(ConstantUtil.SEND_STATUS_FAILED);
                 UserDBManager.getInstance().addOrUpdatePost(publicPostBean);
                 RxBusManager.getInstance().post(new UpdatePostEvent(publicPostBean));
             }
@@ -165,14 +165,14 @@ public class CommentListPresenter extends AppBasePresenter<IView<List<PublicComm
     }
 
 
-    public void sendCommentData( PublicCommentBean newBean) {
-        newBean.setSendStatus(Constant.SEND_STATUS_SUCCESS);
+    public void sendCommentData(PublicCommentBean newBean) {
+        newBean.setSendStatus(ConstantUtil.SEND_STATUS_SUCCESS);
         addSubscription(newBean.save(new SaveListener<String>() {
             @Override
             public void done(String s, BmobException e) {
                 iView.hideLoading();
                 if (e == null) {
-                    newBean.setSendStatus(Constant.SEND_STATUS_SUCCESS);
+                    newBean.setSendStatus(ConstantUtil.SEND_STATUS_SUCCESS);
                     ToastUtils.showShortToast("评论成功");
                     PublicPostBean item = new PublicPostBean();
                     item.increment("commentCount");
@@ -183,9 +183,11 @@ public class CommentListPresenter extends AppBasePresenter<IView<List<PublicComm
                         }
                     }));
                     addSubscription(MsgManager.getInstance().sendNotifyCommentInfo(newBean));
-                }else {
-                    newBean.setSendStatus(Constant.SEND_STATUS_FAILED);
-                    ToastUtils.showShortToast("评论失败"+e.toString());
+                } else {
+                    newBean.setSendStatus(ConstantUtil.SEND_STATUS_FAILED);
+                    ToastUtils.showShortToast("评论失败" + e.toString());
+                    CommonLogger.e("评论失败" + e.toString());
+                    CommonLogger.e(e.getCause());
                 }
                 UserDBManager.getInstance()
                         .addOrUpdateComment(newBean);
@@ -195,7 +197,7 @@ public class CommentListPresenter extends AppBasePresenter<IView<List<PublicComm
     }
 
     public void deleteShareInfo(PublicPostBean data, UpdateListener listener) {
-        if (data.getSendStatus().equals(Constant.SEND_STATUS_SUCCESS)) {
+        if (data.getSendStatus().equals(ConstantUtil.SEND_STATUS_SUCCESS)) {
             UserDBManager.getInstance()
                     .getDaoSession()
                     .getPublicPostEntityDao().deleteByKey(data.getObjectId());
@@ -214,7 +216,7 @@ public class CommentListPresenter extends AppBasePresenter<IView<List<PublicComm
                     BmobQuery<PublicCommentBean> bmobQuery1 = new BmobQuery<>();
                     PublicPostBean item1 = new PublicPostBean();
                     item1.setObjectId(data.getObjectId());
-                    bmobQuery1.addWhereEqualTo(Constant.POST, new BmobPointer(item1));
+                    bmobQuery1.addWhereEqualTo(ConstantUtil.POST, new BmobPointer(item1));
                     bmobQuery1.findObjects(new FindListener<PublicCommentBean>() {
                         @Override
                         public void done(List<PublicCommentBean> list, BmobException e) {
@@ -240,9 +242,9 @@ public class CommentListPresenter extends AppBasePresenter<IView<List<PublicComm
                             }
                         }
                     });
-                    if (data.getMsgType() == Constant.EDIT_TYPE_VIDEO
+                    if (data.getMsgType() == ConstantUtil.EDIT_TYPE_VIDEO
                             ||
-                            data.getMsgType() == Constant.EDIT_TYPE_IMAGE) {
+                            data.getMsgType() == ConstantUtil.EDIT_TYPE_IMAGE) {
                         PostDataBean postDataBean = BaseApplication.getAppComponent().getGson().fromJson(data.getContent(), PostDataBean.class);
                         String[] temp = new String[postDataBean.getImageList().size()];
                         for (int i = 0; i < postDataBean.getImageList().size(); i++) {
@@ -300,9 +302,9 @@ public class CommentListPresenter extends AppBasePresenter<IView<List<PublicComm
                                     if (!publicPostBean
                                             .getAuthor()
                                             .getObjectId().equals(UserManager.getInstance()
-                                            .getCurrentUserObjectId())) {
-                                        addSubscription(MsgManager.getInstance().sendPostNotifyInfo(Constant.TYPE_LIKE,objectId,UserManager.getInstance()
-                                                .getCurrentUserObjectId(),publicPostBean.getAuthor().getObjectId()));
+                                                    .getCurrentUserObjectId())) {
+                                        addSubscription(MsgManager.getInstance().sendPostNotifyInfo(ConstantUtil.TYPE_LIKE, objectId, UserManager.getInstance()
+                                                .getCurrentUserObjectId(), publicPostBean.getAuthor().getObjectId()));
                                     }
                                 }
                             } else {
@@ -310,10 +312,9 @@ public class CommentListPresenter extends AppBasePresenter<IView<List<PublicComm
                             }
 
 
-
                         }
                     }));
-                }else {
+                } else {
                     iView.hideLoading();
                 }
             }

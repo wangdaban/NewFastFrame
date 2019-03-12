@@ -10,13 +10,13 @@ import android.widget.TextView;
 
 import com.bumptech.glide.Glide;
 import com.example.chat.R;
-import com.example.chat.base.Constant;
-import com.example.chat.base.SlideBaseActivity;
+import com.example.chat.base.ConstantUtil;
+import com.example.chat.base.ChatBaseActivity;
 import com.example.chat.manager.UserDBManager;
 import com.example.commonlibrary.baseadapter.adapter.CommonPagerAdapter;
 import com.example.commonlibrary.bean.chat.SkinEntity;
-import com.example.commonlibrary.cusotomview.ToolBarOption;
-import com.example.commonlibrary.cusotomview.WrappedViewPager;
+import com.example.commonlibrary.customview.ToolBarOption;
+import com.example.commonlibrary.customview.WrappedViewPager;
 import com.example.commonlibrary.net.NetManager;
 import com.example.commonlibrary.net.download.DownloadListener;
 import com.example.commonlibrary.net.download.FileInfo;
@@ -35,7 +35,7 @@ import java.util.List;
  * 创建时间:    2018/5/23     11:03
  */
 
-public class SkinDetailActivity extends SlideBaseActivity implements View.OnClickListener {
+public class SkinDetailActivity extends ChatBaseActivity implements View.OnClickListener {
     private WrappedViewPager display;
     private Button downLoad;
     private SkinEntity skinEntity;
@@ -71,7 +71,7 @@ public class SkinDetailActivity extends SlideBaseActivity implements View.OnClic
 
     @Override
     protected void initData() {
-        skinEntity =getIntent().getParcelableExtra(Constant.DATA);
+        skinEntity =getIntent().getParcelableExtra(ConstantUtil.DATA);
         title.setText(skinEntity.getTitle());
         if (skinEntity.isHasSelected()) {
             downLoad.setText("使用中");
@@ -158,12 +158,14 @@ public class SkinDetailActivity extends SlideBaseActivity implements View.OnClic
                 downLoad.setEnabled(false);
                 downLoad.setText("使用中");
                 skinEntity.setHasSelected(true);
-               SkinEntity skinEntity= UserDBManager.getInstance().getCurrentSkin();
-                if (skinEntity != null) {
-                    skinEntity.setHasSelected(false);
+               SkinEntity currentSkin= UserDBManager.getInstance().getCurrentSkin();
+                if (currentSkin != null) {
+                    currentSkin.setHasSelected(false);
                     UserDBManager.getInstance().getDaoSession().getSkinEntityDao()
-                            .update(skinEntity);
+                            .update(currentSkin);
                 }
+                UserDBManager.getInstance().getDaoSession().getSkinEntityDao()
+                        .update(skinEntity);
                 setResult(Activity.RESULT_OK);
 
             }else {
@@ -176,7 +178,7 @@ public class SkinDetailActivity extends SlideBaseActivity implements View.OnClic
 
     public static void start(Activity activity,SkinEntity skinEntity){
         Intent intent=new Intent(activity,SkinDetailActivity.class);
-        intent.putExtra(Constant.DATA,skinEntity);
+        intent.putExtra(ConstantUtil.DATA,skinEntity);
         activity.startActivityForResult(intent,10);
     }
 }

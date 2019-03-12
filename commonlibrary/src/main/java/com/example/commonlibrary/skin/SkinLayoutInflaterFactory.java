@@ -3,8 +3,6 @@ package com.example.commonlibrary.skin;
 import android.content.Context;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
-import android.support.v4.view.LayoutInflaterFactory;
-import android.support.v7.app.AppCompatActivity;
 import android.util.AttributeSet;
 import android.view.View;
 
@@ -15,13 +13,14 @@ import com.example.commonlibrary.skin.attr.SkinItem;
 import com.example.commonlibrary.skin.attr.SrcAttr;
 import com.example.commonlibrary.skin.attr.TextColorAttr;
 import com.example.commonlibrary.skin.attr.ThumbAttr;
-import com.example.commonlibrary.utils.CommonLogger;
-import com.example.commonlibrary.utils.SkinUtil;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.view.LayoutInflaterFactory;
 
 /**
  * Created by COOTEK on 2017/9/3.
@@ -34,11 +33,13 @@ public class SkinLayoutInflaterFactory implements LayoutInflaterFactory {
     private static final String BACKGROUND = "background";
     private static final String SRC = "src";
     private static final String THUMB = "thumb";
+    private static final String NAME_PLACE = "http://schemas.android.com/android/skin";
+    private static final String SKIN_FLAG = "enable";
     private AppCompatActivity appCompatActivity;
     private static List<String> supportAttrsName = new ArrayList<>();
     private Map<View, SkinItem> viewSkinItemMap = new HashMap<>();
 
-    private static final String DRAWABLE_TOP ="drawableTop";
+    private static final String DRAWABLE_TOP = "drawableTop";
 
     static {
         supportAttrsName.add(DRAWABLE_TOP);
@@ -55,13 +56,13 @@ public class SkinLayoutInflaterFactory implements LayoutInflaterFactory {
 
     @Override
     public View onCreateView(View parent, String name, Context context, AttributeSet attrs) {
-//        获取是否应用换肤操作
-        String tag = attrs.getAttributeValue(SkinUtil.NAME_PLACE, "tag");
+        //        获取是否应用换肤操作
+        boolean hasApplySkin = attrs.getAttributeBooleanValue(NAME_PLACE, SKIN_FLAG, false);
         View view = appCompatActivity.getDelegate().createView(parent, name, context, attrs);
         if (view == null) {
             view = ViewProducer.createViewFromTag(context, name, attrs);
         }
-        if (tag != null && tag.equals("skin")) {
+        if (hasApplySkin) {
             return applySkin(context, view, attrs);
         }
         return view;
@@ -88,7 +89,6 @@ public class SkinLayoutInflaterFactory implements LayoutInflaterFactory {
                     }
                 } else if (supportAttrsName.contains(attrName)) {
                     //                只有引用类型才可以换肤
-                    CommonLogger.e("value：" + attrValue + " attrName：" + attrName);
                     if (attrValue.startsWith("?") || attrValue.startsWith("@")) {
                         int id = Integer.parseInt(attrValue.substring(1));
                         if (id != 0) {
@@ -98,7 +98,6 @@ public class SkinLayoutInflaterFactory implements LayoutInflaterFactory {
                 }
             } catch (Resources.NotFoundException | NumberFormatException e) {
                 e.printStackTrace();
-                CommonLogger.e("哈哈" + e.getMessage() + e.getCause().toString());
             }
             if (viewSkinItemMap.get(view) != null) {
                 viewSkinItemMap.get(view).apply();
@@ -134,7 +133,7 @@ public class SkinLayoutInflaterFactory implements LayoutInflaterFactory {
                 skinAttr = new ThumbAttr();
                 break;
             case DRAWABLE_TOP:
-                skinAttr=new DrawableTopAttr();
+                skinAttr = new DrawableTopAttr();
             default:
                 break;
         }
@@ -155,6 +154,6 @@ public class SkinLayoutInflaterFactory implements LayoutInflaterFactory {
 
     public void clear() {
         viewSkinItemMap.clear();
-        viewSkinItemMap=null;
+        viewSkinItemMap = null;
     }
 }

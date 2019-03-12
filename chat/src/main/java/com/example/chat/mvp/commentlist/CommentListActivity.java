@@ -1,10 +1,11 @@
 package com.example.chat.mvp.commentlist;
 
 import android.app.Activity;
+import android.app.SharedElementCallback;
 import android.content.Intent;
 import android.graphics.Color;
-import android.support.v4.widget.SwipeRefreshLayout;
-import android.support.v7.widget.RecyclerView;
+import android.os.Build;
+import android.os.Bundle;
 import android.text.Selection;
 import android.text.Spannable;
 import android.text.SpannableString;
@@ -18,25 +19,24 @@ import android.text.style.ImageSpan;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewStub;
+import android.view.ViewTreeObserver;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
-import com.bumptech.glide.Glide;
-import com.example.chat.ChatApplication;
+import com.example.chat.base.ChatApplication;
 import com.example.chat.R;
 import com.example.chat.adapter.CommentListAdapter;
 import com.example.chat.adapter.EmotionViewAdapter;
 import com.example.chat.adapter.holder.publicShare.ImageShareInfoHolder;
-import com.example.chat.base.Constant;
+import com.example.chat.base.ChatBaseActivity;
+import com.example.chat.base.ConstantUtil;
 import com.example.chat.bean.FaceText;
-import com.example.chat.bean.ImageItem;
-import com.example.chat.bean.post.PublicPostBean;
-import com.example.chat.bean.User;
 import com.example.chat.bean.post.PostDataBean;
 import com.example.chat.bean.post.PublicCommentBean;
+import com.example.chat.bean.post.PublicPostBean;
 import com.example.chat.dagger.commentlist.CommentListModule;
 import com.example.chat.dagger.commentlist.DaggerCommentListComponent;
 import com.example.chat.events.CommentEvent;
@@ -45,10 +45,8 @@ import com.example.chat.events.UpdatePostEvent;
 import com.example.chat.manager.MsgManager;
 import com.example.chat.manager.UserManager;
 import com.example.chat.mvp.EditShare.EditShareInfoActivity;
-import com.example.chat.mvp.commentdetail.CommentListDetailActivity;
-import com.example.chat.mvp.preview.PhotoPreViewActivity;
-import com.example.chat.base.SlideBaseActivity;
 import com.example.chat.mvp.UserDetail.UserDetailActivity;
+import com.example.chat.mvp.commentdetail.CommentListDetailActivity;
 import com.example.chat.util.CommonUtils;
 import com.example.chat.util.FaceTextUtil;
 import com.example.chat.util.TimeUtil;
@@ -56,6 +54,7 @@ import com.example.chat.view.CustomMoveMethod;
 import com.example.commonlibrary.BaseApplication;
 import com.example.commonlibrary.baseadapter.SuperRecyclerView;
 import com.example.commonlibrary.baseadapter.adapter.CommonPagerAdapter;
+import com.example.commonlibrary.baseadapter.decoration.GridSpaceDecoration;
 import com.example.commonlibrary.baseadapter.empty.EmptyLayout;
 import com.example.commonlibrary.baseadapter.foot.LoadMoreFooterView;
 import com.example.commonlibrary.baseadapter.foot.OnLoadMoreListener;
@@ -63,27 +62,38 @@ import com.example.commonlibrary.baseadapter.listener.OnSimpleItemClickListener;
 import com.example.commonlibrary.baseadapter.manager.WrappedGridLayoutManager;
 import com.example.commonlibrary.baseadapter.manager.WrappedLinearLayoutManager;
 import com.example.commonlibrary.bean.chat.PublicPostEntity;
-import com.example.commonlibrary.cusotomview.GridSpaceDecoration;
-import com.example.commonlibrary.cusotomview.RoundAngleImageView;
-import com.example.commonlibrary.cusotomview.ToolBarOption;
-import com.example.commonlibrary.cusotomview.WrappedViewPager;
+import com.example.commonlibrary.bean.chat.User;
+import com.example.commonlibrary.customview.RoundAngleImageView;
+import com.example.commonlibrary.customview.ToolBarOption;
+import com.example.commonlibrary.customview.WrappedViewPager;
+import com.example.commonlibrary.customview.swipe.CustomSwipeRefreshLayout;
 import com.example.commonlibrary.imageloader.glide.GlideImageLoaderConfig;
+import com.example.commonlibrary.manager.video.DefaultVideoPlayer;
+import com.example.commonlibrary.manager.video.ListVideoManager;
+import com.example.commonlibrary.mvp.base.ImagePreViewActivity;
 import com.example.commonlibrary.rxbus.RxBusManager;
+import com.example.commonlibrary.rxbus.event.PhotoPreEvent;
 import com.example.commonlibrary.utils.CommonLogger;
 import com.example.commonlibrary.utils.DensityUtil;
+import com.example.commonlibrary.utils.SoftHideBoardUtil;
+import com.example.commonlibrary.utils.SystemUtil;
 import com.example.commonlibrary.utils.ToastUtils;
 import com.google.gson.Gson;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import javax.inject.Inject;
 
+import androidx.annotation.Nullable;
+import androidx.core.app.ActivityOptionsCompat;
+import androidx.core.util.Pair;
+import androidx.core.view.ViewCompat;
+import androidx.recyclerview.widget.RecyclerView;
 import cn.bmob.v3.exception.BmobException;
 import cn.bmob.v3.listener.FindListener;
 import cn.bmob.v3.listener.UpdateListener;
-import cn.jzvd.JZVideoPlayer;
-import cn.jzvd.JZVideoPlayerStandard;
 
 /**
  * 项目名称:    NewFastFrame
@@ -92,10 +102,10 @@ import cn.jzvd.JZVideoPlayerStandard;
  * QQ:         1981367757
  */
 
-public class CommentListActivity extends SlideBaseActivity<List<PublicCommentBean>, CommentListPresenter> implements SwipeRefreshLayout.OnRefreshListener, OnLoadMoreListener, View.OnClickListener {
+public class CommentListActivity extends ChatBaseActivity<List<PublicCommentBean>, CommentListPresenter> implements CustomSwipeRefreshLayout.OnRefreshListener, OnLoadMoreListener, View.OnClickListener {
 
 
-    private SwipeRefreshLayout refresh;
+    private CustomSwipeRefreshLayout refresh;
     private SuperRecyclerView display;
     @Inject
     CommentListAdapter commentListAdapter;
@@ -112,6 +122,12 @@ public class CommentListActivity extends SlideBaseActivity<List<PublicCommentBea
     private WrappedLinearLayoutManager manager;
     private ImageView retry;
     private ProgressBar loading;
+    private RoundAngleImageView headerAvatar;
+    private int index = -1;
+    private SuperRecyclerView headerDisplay;
+    private TextView headerName;
+    private ImageView sex;
+    private View headerView;
 
     @Override
     public void updateData(List<PublicCommentBean> list) {
@@ -120,9 +136,14 @@ public class CommentListActivity extends SlideBaseActivity<List<PublicCommentBea
                 commentListAdapter.removeEndData(commentListAdapter.getData().size() - 10);
             }
             commentListAdapter.addData(0, list);
+            scrollToBottom();
         } else {
             commentListAdapter.addData(list);
         }
+    }
+
+    private void scrollToBottom() {
+        manager.scrollToPositionWithOffset(0, 0);
     }
 
     @Override
@@ -140,20 +161,26 @@ public class CommentListActivity extends SlideBaseActivity<List<PublicCommentBea
         return R.layout.activity_comment_list;
     }
 
+
+    @Override
+    protected void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        SoftHideBoardUtil.assistActivity(findViewById(R.id.ll_activity_comment_list_container), null);
+    }
+
     @Override
     protected void initView() {
-        refresh = (SwipeRefreshLayout) findViewById(R.id.refresh_activity_comment_list_refresh);
-        display = (SuperRecyclerView) findViewById(R.id.srcv_activity_comment_list_display);
+        refresh = findViewById(R.id.refresh_activity_comment_list_refresh);
+        display = findViewById(R.id.srcv_activity_comment_list_display);
         refresh.setOnRefreshListener(this);
-        face = (Button) findViewById(R.id.btn_comment_bottom_face);
-
-        input = (EditText) findViewById(R.id.et_comment_bottom_input);
-        keyboard = (Button) findViewById(R.id.btn_comment_bottom_keyboard);
-        send = (Button) findViewById(R.id.btn_comment_bottom_send);
+        face = findViewById(R.id.btn_comment_bottom_face);
+        input = findViewById(R.id.et_comment_bottom_input);
+        keyboard = findViewById(R.id.btn_comment_bottom_keyboard);
+        send = findViewById(R.id.btn_comment_bottom_send);
         face.setOnClickListener(this);
         keyboard.setOnClickListener(this);
         send.setOnClickListener(this);
-        emotionPager = (WrappedViewPager) findViewById(R.id.vp_comment_bottom_emotion);
+        emotionPager = findViewById(R.id.vp_comment_bottom_emotion);
         initEmotionInfo();
     }
 
@@ -173,20 +200,20 @@ public class CommentListActivity extends SlideBaseActivity<List<PublicCommentBea
     private View getGridView(int i) {
         View emotionView = LayoutInflater.from(this).inflate(R.layout.view_activity_chat_emotion, null);
         SuperRecyclerView superRecyclerView = emotionView.findViewById(R.id.srcv_view_activity_chat_emotion_display);
-        superRecyclerView.setLayoutManager(new WrappedGridLayoutManager(this,7));
+        superRecyclerView.setLayoutManager(new WrappedGridLayoutManager(this, 7));
         EmotionViewAdapter emotionViewAdapter = new EmotionViewAdapter();
         superRecyclerView.setAdapter(emotionViewAdapter);
         emotionViewAdapter.addData(i == 0 ? emotionFaceList.subList(0, 21) : emotionFaceList.subList(21, emotionFaceList.size()));
         emotionViewAdapter.setOnItemClickListener(new OnSimpleItemClickListener() {
             @Override
             public void onItemClick(int position, View view) {
-                FaceText faceText= emotionViewAdapter.getData(position);
+                FaceText faceText = emotionViewAdapter.getData(position);
                 String content = faceText.getText();
                 if (input != null) {
                     int startIndex = input.getSelectionStart();
                     CharSequence content1 = input.getText().insert(startIndex, content);
                     input.setText(FaceTextUtil.toSpannableString(CommentListActivity.this.getApplicationContext(), content1.toString()));
-//                                        重新定位光标位置
+                    //                                        重新定位光标位置
                     CharSequence info = input.getText();
                     if (info != null) {
                         Spannable spannable = (Spannable) info;
@@ -216,6 +243,8 @@ public class CommentListActivity extends SlideBaseActivity<List<PublicCommentBea
                 if (newState != RecyclerView.SCROLL_STATE_IDLE) {
                     currentPosition = -1;
                     input.setHint("");
+                    CommonUtils.hideSoftInput(
+                            CommentListActivity.this, input);
                 }
             }
         });
@@ -230,17 +259,21 @@ public class CommentListActivity extends SlideBaseActivity<List<PublicCommentBea
             public void onItemChildClick(int position, View view, int id) {
                 if (id == R.id.iv_item_activity_comment_list_comment) {
                     currentPosition = position;
-                    input.setHint("回复@" + commentListAdapter.getData(position).getUser().getNick() + ":");
+                    input.setHint("回复@" + commentListAdapter.getData(position).getUser().getName() + ":");
                     dealBottomInput(true);
                     manager.scrollToPositionWithOffset(currentPosition + commentListAdapter.getItemUpCount(), 0);
                 } else if (id == R.id.riv_item_activity_comment_list_avatar) {
-                    UserDetailActivity.start(CommentListActivity.this, commentListAdapter.getData(position).getUser().getObjectId());
+                    UserDetailActivity.start(CommentListActivity.this, commentListAdapter.getData(position).getUser().getObjectId()
+                            , ActivityOptionsCompat.makeSceneTransitionAnimation(CommentListActivity.this, Pair.create(view, "avatar")
+                            ));
                 } else if (id == R.id.tv_item_activity_comment_list_look) {
                     CommentListDetailActivity.start(CommentListActivity.this, commentListAdapter
                             .getData(position));
                 }
             }
         });
+
+
         display.setAdapter(commentListAdapter);
         ToolBarOption toolBarOption = new ToolBarOption();
         toolBarOption.setNeedNavigation(true);
@@ -252,8 +285,8 @@ public class CommentListActivity extends SlideBaseActivity<List<PublicCommentBea
                     data.setLikeCount(data.getLikeCount() + 1);
                     data.getLikeList().add(UserManager.getInstance()
                             .getCurrentUserObjectId());
-                }else {
-                    data.setLikeCount(data.getLikeCount()-1);
+                } else {
+                    data.setLikeCount(data.getLikeCount() - 1);
                     data.getLikeList().remove(UserManager.getInstance()
                             .getCurrentUserObjectId());
                 }
@@ -265,23 +298,57 @@ public class CommentListActivity extends SlideBaseActivity<List<PublicCommentBea
         });
         presenter.registerEvent(PublicCommentBean.class, publicCommentBean -> commentListAdapter.addData(0, publicCommentBean));
         presenter.registerEvent(UpdatePostEvent.class, updatePostEvent -> {
-            PublicPostBean publicPostBean=updatePostEvent.getPublicPostBean();
+            PublicPostBean publicPostBean = updatePostEvent.getPublicPostBean();
             if (data.getObjectId().contains("-")) {
                 if (publicPostBean.getUpdatedAt().equals(data.getUpdatedAt())
                         && data.getAuthor().equals(data.getAuthor())) {
-                    data=publicPostBean;
+                    data = publicPostBean;
                     updateStatus();
                 }
             } else if (data.equals(publicPostBean)) {
-                data=publicPostBean;
+                data = publicPostBean;
                 updateStatus();
             }
         });
         presenter.getCommentListData(postId, true, getRefreshTime(true));
+        initSharedElement();
     }
 
+    private void initSharedElement() {
+        supportPostponeEnterTransition();
+        ViewCompat.setTransitionName(headerView, "header");
+        headerAvatar.getViewTreeObserver().addOnPreDrawListener(new ViewTreeObserver.OnPreDrawListener() {
+            @Override
+            public boolean onPreDraw() {
+                headerAvatar.getViewTreeObserver().removeOnPreDrawListener(this);
+                supportStartPostponedEnterTransition();
+                return true;
+            }
+        });
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            setExitSharedElementCallback(new SharedElementCallback() {
+                @Override
+                public void onMapSharedElements(List<String> names, Map<String, View> sharedElements) {
 
-
+                    View view = null;
+                    if (headerDisplay != null) {
+                        view = headerDisplay.getLayoutManager().findViewByPosition(index);
+                    }
+                    if (view != null) {
+                        sharedElements.clear();
+                        sharedElements.put(((ImageShareInfoHolder.ImageShareAdapter) headerDisplay.getAdapter())
+                                .getData(index), view);
+                        index = -1;
+                    }
+                }
+            });
+        }
+        presenter.registerEvent(PhotoPreEvent.class, photoPreEvent -> {
+            if (photoPreEvent.getFlag() == ConstantUtil.COMMENT_LIST_FLAG) {
+                index = photoPreEvent.getIndex();
+            }
+        });
+    }
 
 
     private String getRefreshTime(boolean isRefresh) {
@@ -289,12 +356,12 @@ public class CommentListActivity extends SlideBaseActivity<List<PublicCommentBea
             if (commentListAdapter.getData().size() == 0) {
                 return "0000-00-00 01:00:00";
             }
-                if (commentListAdapter.getData().size() >=10) {
-                    return commentListAdapter.getData(9).getCreatedAt();
-                } else {
-                    return commentListAdapter.getData(commentListAdapter.getData().size() - 1)
-                            .getCreatedAt();
-                }
+            if (commentListAdapter.getData().size() >= 10) {
+                return commentListAdapter.getData(9).getCreatedAt();
+            } else {
+                return commentListAdapter.getData(commentListAdapter.getData().size() - 1)
+                        .getCreatedAt();
+            }
         } else {
             if (commentListAdapter.getData(commentListAdapter.getData().size() - 1) != null) {
                 return commentListAdapter.getData(commentListAdapter.getData().size() - 1).getCreatedAt();
@@ -326,8 +393,8 @@ public class CommentListActivity extends SlideBaseActivity<List<PublicCommentBea
             CommonUtils.hideSoftInput(
                     this, input);
             input.setText("");
-        }else {
-            CommonUtils.showSoftInput(this,input);
+        } else {
+            CommonUtils.showSoftInput(this, input);
         }
     }
 
@@ -352,7 +419,7 @@ public class CommentListActivity extends SlideBaseActivity<List<PublicCommentBea
     private View getHeaderView(final PublicPostBean data) {
         final PostDataBean postDataBean = BaseApplication.getAppComponent().getGson()
                 .fromJson(data.getContent(), PostDataBean.class);
-        View headerView = getLayoutInflater().inflate(R.layout.item_fragment_share_info, null);
+        headerView = getLayoutInflater().inflate(R.layout.item_fragment_share_info, null);
         headerView.findViewById(R.id.iv_item_fragment_share_info_more).setVisibility(View.GONE);
         share = headerView.findViewById(R.id.tv_item_fragment_share_info_share);
         share.setText(data.getShareCount() == 0 ? "转发" : data.getShareCount() + "");
@@ -364,27 +431,28 @@ public class CommentListActivity extends SlideBaseActivity<List<PublicCommentBea
         updateLikeStatus();
         like.setOnClickListener(this);
 
-         retry=headerView.findViewById(R.id.iv_item_fragment_share_info_retry);
-         loading=headerView.findViewById(R.id.pb_item_fragment_share_info_retry_loading);
+        retry = headerView.findViewById(R.id.iv_item_fragment_share_info_retry);
+        loading = headerView.findViewById(R.id.pb_item_fragment_share_info_retry_loading);
         retry.setOnClickListener(v -> {
-            data.setSendStatus(Constant.SEND_STATUS_SENDING);
+            data.setSendStatus(ConstantUtil.SEND_STATUS_SENDING);
             if (data.getObjectId().contains("-")) {
-                presenter.reSendPublicPostBean(data,data.getObjectId());
-            }else {
+                presenter.reSendPublicPostBean(data, data.getObjectId());
+            } else {
                 presenter.updatePublicPostBean(data);
             }
         });
         updateStatus();
-        RoundAngleImageView avatar = headerView.findViewById(R.id.riv_item_fragment_share_info_avatar);
+        headerAvatar = headerView.findViewById(R.id.riv_item_fragment_share_info_avatar);
         BaseApplication.getAppComponent().getImageLoader()
                 .loadImage(this, new GlideImageLoaderConfig.Builder().url(data.getAuthor()
-                        .getAvatar()).imageView(avatar).build());
-        avatar.setOnClickListener(this);
-        ((TextView) headerView.findViewById(R.id.tv_item_fragment_share_info_main_text))
-                .setText(data.getAuthor().getName());
-        ((ImageView) headerView.findViewById(R.id.iv_item_fragment_share_info_sex))
-                .setImageResource(data.getAuthor().isSex() ? R.drawable.ic_sex_male : R.drawable
-                        .ic_sex_female);
+                        .getAvatar()).imageView(headerAvatar).build());
+        headerAvatar.setOnClickListener(this);
+
+        headerName = headerView.findViewById(R.id.tv_item_fragment_share_info_main_text);
+        headerName.setText(data.getAuthor().getName());
+        sex = headerView.findViewById(R.id.iv_item_fragment_share_info_sex);
+        sex.setImageResource(data.getAuthor().isSex() ? R.drawable.ic_sex_male : R.drawable
+                .ic_sex_female);
         ((TextView) headerView.findViewById(R.id.tv_item_fragment_share_info_sub_text))
                 .setText(getText(data));
         ((TextView) headerView.findViewById(R.id.tv_item_fragment_share_info_normal_text))
@@ -394,102 +462,104 @@ public class CommentListActivity extends SlideBaseActivity<List<PublicCommentBea
                 List<String> list = new ArrayList<>();
                 list.add("删除");
                 list.add("修改");
-                showChooseDialog("帖子操作", list, (adapterView, view1, i, l) -> {
-                    dismissBaseDialog();
-                    if (i == 0) {
-                        showLoadDialog("删除中....");
-                        presenter.deleteShareInfo(data, new UpdateListener() {
-                            @Override
-                            public void done(BmobException e) {
-                                dismissLoadDialog();
-                                if (e == null) {
-                                    ToastUtils.showShortToast("删除成功");
-                                    CommonLogger.e("删除成功");
-                                    RxBusManager.getInstance().post(new CommentEvent(data.getObjectId(),CommentEvent.TYPE_POST,CommentEvent.ACTION_DELETE));
-                                    finish();
-                                } else {
-                                    ToastUtils.showShortToast("删除失败" + e.toString());
-                                    CommonLogger.e("删除失败" + e.toString());
+                showChooseDialog("帖子操作", list, new OnSimpleItemClickListener() {
+                    @Override
+                    public void onItemClick(int position, View view) {
+                        if (position == 0) {
+                            showLoadDialog("删除中....");
+                            presenter.deleteShareInfo(data, new UpdateListener() {
+                                @Override
+                                public void done(BmobException e) {
+                                    dismissLoadDialog();
+                                    if (e == null) {
+                                        ToastUtils.showShortToast("删除成功");
+                                        CommonLogger.e("删除成功");
+                                        RxBusManager.getInstance().post(new CommentEvent(data.getObjectId(), CommentEvent.TYPE_POST, CommentEvent.ACTION_DELETE));
+                                        finish();
+                                    } else {
+                                        ToastUtils.showShortToast("删除失败" + e.toString());
+                                        CommonLogger.e("删除失败" + e.toString());
+                                    }
                                 }
-                            }
-                        });
-                    } else {
-                        EditShareInfoActivity.start(CommentListActivity.this,data.getMsgType(),data,true);
-                        finish();
+                            });
+                        } else {
+                            EditShareInfoActivity.start(CommentListActivity.this, data.getMsgType(), data, true);
+                            finish();
+                        }
                     }
                 });
             } else {
                 ToastUtils.showShortToast("非帖子作者，不可编辑");
             }
         });
-        
+
         ViewStub viewStub = headerView.findViewById(R.id.vs_item_fragment_share_info_stub);
-        if (data.getMsgType() == Constant.EDIT_TYPE_IMAGE) {
-            SuperRecyclerView display = null;
+        if (data.getMsgType() == ConstantUtil.EDIT_TYPE_IMAGE) {
             viewStub.setLayoutResource(R.layout.item_fragment_share_info_image);
-            display = (SuperRecyclerView) viewStub.inflate();
+            headerDisplay = (SuperRecyclerView) viewStub.inflate();
             int size = postDataBean.getImageList().size();
             if (size <= 4) {
-                display.setLayoutManager(new WrappedGridLayoutManager(this, 2));
-                display.addItemDecoration(new GridSpaceDecoration(2, DensityUtil.toDp(5), false));
+                headerDisplay.setLayoutManager(new WrappedGridLayoutManager(this, 2));
+                headerDisplay.addItemDecoration(new GridSpaceDecoration(2, DensityUtil.toDp(5), false));
             } else {
-                display.setLayoutManager(new WrappedGridLayoutManager(this, 3));
-                display.addItemDecoration(new GridSpaceDecoration(3, DensityUtil.toDp(5), false));
+                headerDisplay.setLayoutManager(new WrappedGridLayoutManager(this, 3));
+                headerDisplay.addItemDecoration(new GridSpaceDecoration(3, DensityUtil.toDp(5), false));
             }
 
             final ImageShareInfoHolder.ImageShareAdapter adapter = new ImageShareInfoHolder.ImageShareAdapter();
-            display.setAdapter(adapter);
+            headerDisplay.setAdapter(adapter);
             adapter.setOnItemClickListener(new OnSimpleItemClickListener() {
                 @Override
                 public void onItemClick(int position, View view) {
                     List<String> imageList = postDataBean.getImageList();
                     if (imageList != null && imageList.size() > 0) {
-                        ArrayList<ImageItem> result = new ArrayList<>();
+                        ArrayList<SystemUtil.ImageItem> result = new ArrayList<>();
                         for (String str :
                                 imageList) {
-                            ImageItem imageItem = new ImageItem();
+                            SystemUtil.ImageItem imageItem = new SystemUtil.ImageItem();
                             imageItem.setPath(str);
                             result.add(imageItem);
                         }
-                        PhotoPreViewActivity.start(CommentListActivity.this, position, result, false);
+
+                        ImagePreViewActivity.start(CommentListActivity.this, (ArrayList<String>) imageList, position, view, ConstantUtil.COMMENT_LIST_FLAG);
+                        //                        PhotoPreViewActivity.start(CommentListActivity.this, position, result, false);
                     }
                 }
             });
             adapter.addData(postDataBean.getImageList());
 
-        } else if (data.getMsgType() == Constant.EDIT_TYPE_TEXT) {
-        } else if (data.getMsgType() == Constant.EDIT_TYPE_SHARE) {
-            Gson gson= BaseApplication.getAppComponent().getGson();
-            PublicPostEntity bean=gson.fromJson(postDataBean.getShareContent(),PublicPostEntity.class);
-            PostDataBean shareBean=gson.fromJson(bean.getContent(),PostDataBean.class);
+        } else if (data.getMsgType() == ConstantUtil.EDIT_TYPE_TEXT) {
+        } else if (data.getMsgType() == ConstantUtil.EDIT_TYPE_SHARE) {
+            Gson gson = BaseApplication.getAppComponent().getGson();
+            PublicPostEntity bean = gson.fromJson(postDataBean.getShareContent(), PublicPostEntity.class);
+            PostDataBean shareBean = gson.fromJson(bean.getContent(), PostDataBean.class);
             viewStub.setLayoutResource(R.layout.item_fragment_share_info_share);
-            View shareView=viewStub.inflate();
+            View shareView = viewStub.inflate();
             shareView.findViewById(R.id.ll_item_fragment_share_info_share_container)
                     .setOnClickListener(this);
-            TextView shareContent=shareView.findViewById(R.id.tv_item_fragment_share_info_share_content);
-            shareContent.setText(getSpannerContent(null,null
-                    , FaceTextUtil.toSpannableString(this,shareBean.getContent())));
+            TextView shareContent = shareView.findViewById(R.id.tv_item_fragment_share_info_share_content);
+            shareContent.setText(getSpannerContent(null, null
+                    , FaceTextUtil.toSpannableString(this, shareBean.getContent())));
             shareContent.setMovementMethod(new CustomMoveMethod());
             UserManager.getInstance().findUserById(bean.getUid(), new FindListener<User>() {
                 @Override
                 public void done(List<User> list, BmobException e) {
-                    String nick=null;
                     if (e == null) {
                         if (list != null && list.size() > 0) {
                             shareContent.setText(getSpannerContent(list.get(0).getName(),
                                     list.get(0).getObjectId()
-                                    , FaceTextUtil.toSpannableString(CommentListActivity.this,shareBean.getContent())));
+                                    , FaceTextUtil.toSpannableString(CommentListActivity.this, shareBean.getContent())));
                         }
-                    }else {
-                        ToastUtils.showShortToast("加载用户信息失败"+e.toString());
+                    } else {
+                        ToastUtils.showShortToast("加载用户信息失败" + e.toString());
                     }
                 }
             });
-            SuperRecyclerView display=shareView.findViewById(R.id.srcv_item_fragment_share_info_display);
-            JZVideoPlayerStandard videoDisplay=shareView.findViewById(R.id.js_item_fragment_share_info_video_display);
+            SuperRecyclerView display = shareView.findViewById(R.id.srcv_item_fragment_share_info_display);
+            DefaultVideoPlayer videoDisplay = shareView.findViewById(R.id.dvp_item_fragment_share_info_video_container);
             shareView.findViewById(R.id.ll_item_fragment_share_info_share_container)
                     .setOnClickListener(this);
-            if (bean.getMsgType() ==Constant.EDIT_TYPE_IMAGE) {
+            if (bean.getMsgType() == ConstantUtil.EDIT_TYPE_IMAGE) {
                 display.setVisibility(View.VISIBLE);
                 videoDisplay.setVisibility(View.GONE);
                 int size = shareBean.getImageList().size();
@@ -509,36 +579,34 @@ public class CommentListActivity extends SlideBaseActivity<List<PublicCommentBea
                     }
                 });
                 adapter.addData(shareBean.getImageList());
-            } else if (bean.getMsgType() ==Constant.EDIT_TYPE_TEXT) {
+            } else if (bean.getMsgType() == ConstantUtil.EDIT_TYPE_TEXT) {
                 display.setVisibility(View.GONE);
                 videoDisplay.setVisibility(View.GONE);
-            } else if (bean.getMsgType() == Constant.EDIT_TYPE_VIDEO) {
+            } else if (bean.getMsgType() == ConstantUtil.EDIT_TYPE_VIDEO) {
                 display.setVisibility(View.GONE);
                 videoDisplay.setVisibility(View.VISIBLE);
                 if (shareBean.getImageList() != null && shareBean.getImageList().size() > 1) {
                     for (String item :
                             shareBean.getImageList()) {
                         if (item.endsWith(".mp4")) {
-                            videoDisplay.setUp(item, JZVideoPlayer.SCREEN_WINDOW_LIST, "测试");
+                            videoDisplay.setUp(item, null);
                         } else {
-                            Glide.with(this).load(item)
-                                    .into(videoDisplay.thumbImageView);
+                            videoDisplay.setImageCover(item);
                         }
                     }
                 }
             }
 
-        } else if (data.getMsgType() == Constant.EDIT_TYPE_VIDEO) {
+        } else if (data.getMsgType() == ConstantUtil.EDIT_TYPE_VIDEO) {
             viewStub.setLayoutResource(R.layout.item_fragment_share_info_video);
-            JZVideoPlayerStandard videoPlayerStandard=viewStub.inflate().findViewById(R.id.js_item_fragment_share_info_video_display);
+            DefaultVideoPlayer defaultVideoPlayer = viewStub.inflate().findViewById(R.id.dvp_item_fragment_share_info_video_container);
             if (postDataBean.getImageList() != null && postDataBean.getImageList().size() > 1) {
                 for (String item :
                         postDataBean.getImageList()) {
                     if (item.endsWith(".mp4")) {
-                        videoPlayerStandard.setUp(item, JZVideoPlayer.SCREEN_WINDOW_LIST, "测试");
+                        defaultVideoPlayer.setUp(item, null);
                     } else {
-                        Glide.with(this).load(item)
-                                .into(videoPlayerStandard.thumbImageView);
+                        defaultVideoPlayer.setImageCover(item);
                     }
                 }
             }
@@ -550,9 +618,9 @@ public class CommentListActivity extends SlideBaseActivity<List<PublicCommentBea
         Gson gson = BaseApplication.getAppComponent()
                 .getGson();
         PostDataBean bean = gson.fromJson(data.getContent(), PostDataBean.class);
-//                            分享文章的ID
+        //                            分享文章的ID
         PublicPostBean publicPostBean = MsgManager.getInstance().cover(gson.fromJson(bean.getShareContent(), PublicPostEntity.class));
-        CommentListActivity.start(this,publicPostBean);
+        CommentListActivity.start(this, publicPostBean);
     }
 
     private void updateCommentStatus() {
@@ -563,16 +631,16 @@ public class CommentListActivity extends SlideBaseActivity<List<PublicCommentBea
         like.setText(data.getLikeCount() == 0 ? "点赞" : data.getLikeCount() + "");
         if (data.getLikeList().contains(UserManager.getInstance().getCurrentUserObjectId())) {
             like.setCompoundDrawablesWithIntrinsicBounds(getResources().getDrawable(R.drawable.ic_favorite_deep_orange_a700_24dp), null, null, null);
-        }else {
+        } else {
             like.setCompoundDrawablesWithIntrinsicBounds(getResources().getDrawable(R.drawable.ic_favorite_border_deep_orange_a700_24dp), null, null, null);
         }
     }
 
     private void updateStatus() {
-        if (data.getSendStatus().equals(Constant.SEND_STATUS_SUCCESS)) {
+        if (data.getSendStatus().equals(ConstantUtil.SEND_STATUS_SUCCESS)) {
             retry.setVisibility(View.GONE);
             loading.setVisibility(View.GONE);
-        } else if (data.getSendStatus().equals(Constant.SEND_STATUS_SENDING)) {
+        } else if (data.getSendStatus().equals(ConstantUtil.SEND_STATUS_SENDING)) {
             loading.setVisibility(View.VISIBLE);
             retry.setVisibility(View.GONE);
         } else {
@@ -581,17 +649,17 @@ public class CommentListActivity extends SlideBaseActivity<List<PublicCommentBea
         }
     }
 
-    private SpannableStringBuilder getSpannerContent(String name,String uid,CharSequence content) {
-        SpannableStringBuilder builder=new SpannableStringBuilder();
-        String str="@"+name+":";
+    private SpannableStringBuilder getSpannerContent(String name, String uid, CharSequence content) {
+        SpannableStringBuilder builder = new SpannableStringBuilder();
+        String str = "@" + name + ":";
         SpannableString spannableString = new SpannableString(str);
         spannableString.setSpan(new ForegroundColorSpan(Color.parseColor("#232121")), 0, str.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         spannableString.setSpan(new ClickableSpan() {
             @Override
             public void onClick(View widget) {
-                if (uid!=null) {
-                    UserDetailActivity.start((Activity) widget.getContext(),uid);
-                }else {
+                if (uid != null) {
+                    UserDetailActivity.start((Activity) widget.getContext(), uid);
+                } else {
                     ToastUtils.showShortToast("用户数据加载失败");
                 }
             }
@@ -599,7 +667,6 @@ public class CommentListActivity extends SlideBaseActivity<List<PublicCommentBea
         builder.append(spannableString).append(content);
         return builder;
     }
-
 
 
     private SpannableStringBuilder getText(PublicPostBean bean) {
@@ -621,9 +688,24 @@ public class CommentListActivity extends SlideBaseActivity<List<PublicCommentBea
     }
 
     public static void start(Activity activity, PublicPostBean data) {
+        start(activity, data, null);
+    }
+
+
+    @Override
+    protected boolean needSlide() {
+        return false;
+    }
+
+    public static void start(Activity activity, PublicPostBean data, ActivityOptionsCompat activityOptionsCompat) {
         Intent intent = new Intent(activity, CommentListActivity.class);
         intent.putExtra("data", data);
-        activity.startActivity(intent);
+        if (activityOptionsCompat != null) {
+            activity.startActivity(intent, activityOptionsCompat.toBundle());
+        } else {
+            activity.startActivity(intent);
+        }
+
     }
 
     @Override
@@ -643,9 +725,9 @@ public class CommentListActivity extends SlideBaseActivity<List<PublicCommentBea
         if (id == R.id.tv_item_fragment_share_info_share) {
             if (data.getAuthor().getObjectId().equals(UserManager.getInstance().getCurrentUserObjectId())) {
                 ToastUtils.showShortToast("不能转发自己的说说");
-            }else {
-                EditShareInfoActivity.start(this,Constant.EDIT_TYPE_SHARE,data
-                ,false);
+            } else {
+                EditShareInfoActivity.start(this, ConstantUtil.EDIT_TYPE_SHARE, data
+                        , false);
                 finish();
             }
         } else if (id == R.id.tv_item_fragment_share_info_comment) {
@@ -654,12 +736,13 @@ public class CommentListActivity extends SlideBaseActivity<List<PublicCommentBea
         } else if (id == R.id.tv_item_fragment_share_info_like) {
             dealLike(data);
         } else if (id == R.id.riv_item_fragment_share_info_avatar) {
-            UserDetailActivity.start(this, data.getAuthor().getObjectId());
+            UserDetailActivity.start(this, data.getAuthor().getObjectId()
+                    , ActivityOptionsCompat.makeSceneTransitionAnimation(CommentListActivity.this, Pair.create(headerAvatar, "avatar")
+                    ));
 
-        }else if (id==R.id.ll_item_fragment_share_info_share_container){
+        } else if (id == R.id.ll_item_fragment_share_info_share_container) {
             dealShareInfo();
-        }
-        else {
+        } else {
             if (id == R.id.btn_comment_bottom_face) {
                 emotionPager.setVisibility(View.VISIBLE);
                 face.setVisibility(View.GONE);
@@ -679,12 +762,12 @@ public class CommentListActivity extends SlideBaseActivity<List<PublicCommentBea
                                 .getInstance().getCurrentUserObjectId())) {
                             ToastUtils.showShortToast("不能回复自己的评论!!!");
                             dealBottomInput(false);
-                           return;
+                            return;
                         }
                     }
-                    PublicCommentBean publicCommentBean=MsgManager.getInstance().createPostCommentBean(bean,data,input.getText().toString().trim());
-                    publicCommentBean.setSendStatus(Constant.SEND_STATUS_SENDING);
-                    commentListAdapter.addData(0,publicCommentBean);
+                    PublicCommentBean publicCommentBean = MsgManager.getInstance().createPostCommentBean(bean, data, input.getText().toString().trim());
+                    publicCommentBean.setSendStatus(ConstantUtil.SEND_STATUS_SENDING);
+                    commentListAdapter.addData(0, publicCommentBean);
                     presenter.sendCommentData(publicCommentBean);
                     dealBottomInput(false);
                 }
@@ -696,12 +779,20 @@ public class CommentListActivity extends SlideBaseActivity<List<PublicCommentBea
     @Override
     protected void onDestroy() {
         super.onDestroy();
-//        把刷新评论的更新时间置空
-        String key = Constant.UPDATE_TIME_COMMENT + postId;
+        //        把刷新评论的更新时间置空
+        String key = ConstantUtil.UPDATE_TIME_COMMENT + postId;
         BaseApplication.getAppComponent()
                 .getSharedPreferences().edit()
                 .putString(key, null)
                 .apply();
+    }
+
+
+    @Override
+    public void onBackPressed() {
+        if (data.getMsgType() != ConstantUtil.EDIT_TYPE_VIDEO || !ListVideoManager.getInstance().onBackPressed()) {
+            super.onBackPressed();
+        }
     }
 
     private void dealLike(PublicPostBean bean) {

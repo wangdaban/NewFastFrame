@@ -1,10 +1,12 @@
 package com.example.cootek.newfastframe.bean;
 
+import java.io.Serializable;
+
 /**
  * Created by COOTEK on 2017/8/15.
  */
 
-public class DownLoadMusicBean {
+public class DownLoadMusicBean implements Serializable {
 
     /**
      * songinfo : {"special_type":0,"pic_huge":"http://musicdata.baidu.com/data2/pic/59cffb7aa3a14d30f14fefb1c08c0739/549122402/549122402.jpg@s_1,w_1000,h_1000","ting_uid":"1209","pic_premium":"http://musicdata.baidu.com/data2/pic/59cffb7aa3a14d30f14fefb1c08c0739/549122402/549122402.jpg@s_1,w_500,h_500","havehigh":2,"si_proxycompany":"华宇世博-赵传曲库","author":"赵传","toneid":"0","has_mv":1,"song_id":"549122778","title":"看不见的地方","artist_id":"345","lrclink":"http://musicdata.baidu.com/data2/lrc/f9be1d054e9bb4c4116c958ed9caeec5/549122751/549122751.lrc","relate_status":"0","learn":0,"pic_big":"http://musicdata.baidu.com/data2/pic/59cffb7aa3a14d30f14fefb1c08c0739/549122402/549122402.jpg@s_1,w_150,h_150","play_type":0,"album_id":"549122776","pic_radio":"http://musicdata.baidu.com/data2/pic/59cffb7aa3a14d30f14fefb1c08c0739/549122402/549122402.jpg@s_1,w_300,h_300","bitrate_fee":"{\"0\":\"0|0\",\"1\":\"0|0\"}","song_source":"web","all_artist_id":"345","all_artist_ting_uid":"1209","piao_id":"0","charge":0,"copy_type":"0","all_rate":"64,128,256,320,flac","korean_bb_song":"0","is_first_publish":0,"has_mv_mobile":0,"album_title":"看不见的地方","pic_small":"http://musicdata.baidu.com/data2/pic/59cffb7aa3a14d30f14fefb1c08c0739/549122402/549122402.jpg@s_1,w_90,h_90","album_no":"1","resource_type_ext":"0","resource_type":"0"}
@@ -16,6 +18,15 @@ public class DownLoadMusicBean {
     private int error_code;
     private BitrateBean bitrate;
 
+
+    @Override
+    public String toString() {
+        return "DownLoadMusicBean{" +
+                "songinfo=" + songinfo +
+                ", error_code=" + error_code +
+                ", bitrate=" + bitrate +
+                '}';
+    }
 
     @Override
     public boolean equals(Object obj) {
@@ -46,7 +57,48 @@ public class DownLoadMusicBean {
         this.bitrate = bitrate;
     }
 
-    public static class SonginfoBean {
+    public static class SonginfoBean implements Serializable {
+        @Override
+        public String toString() {
+            return "SonginfoBean{" +
+                    "special_type=" + special_type +
+                    ", pic_huge='" + pic_huge + '\'' +
+                    ", ting_uid='" + ting_uid + '\'' +
+                    ", pic_premium='" + pic_premium + '\'' +
+                    ", havehigh=" + havehigh +
+                    ", si_proxycompany='" + si_proxycompany + '\'' +
+                    ", author='" + author + '\'' +
+                    ", toneid='" + toneid + '\'' +
+                    ", has_mv=" + has_mv +
+                    ", song_id='" + song_id + '\'' +
+                    ", title='" + title + '\'' +
+                    ", artist_id='" + artist_id + '\'' +
+                    ", lrclink='" + lrclink + '\'' +
+                    ", relate_status='" + relate_status + '\'' +
+                    ", learn=" + learn +
+                    ", pic_big='" + pic_big + '\'' +
+                    ", play_type=" + play_type +
+                    ", album_id='" + album_id + '\'' +
+                    ", pic_radio='" + pic_radio + '\'' +
+                    ", bitrate_fee='" + bitrate_fee + '\'' +
+                    ", song_source='" + song_source + '\'' +
+                    ", all_artist_id='" + all_artist_id + '\'' +
+                    ", all_artist_ting_uid='" + all_artist_ting_uid + '\'' +
+                    ", piao_id='" + piao_id + '\'' +
+                    ", charge=" + charge +
+                    ", copy_type='" + copy_type + '\'' +
+                    ", all_rate='" + all_rate + '\'' +
+                    ", korean_bb_song='" + korean_bb_song + '\'' +
+                    ", is_first_publish=" + is_first_publish +
+                    ", has_mv_mobile=" + has_mv_mobile +
+                    ", album_title='" + album_title + '\'' +
+                    ", pic_small='" + pic_small + '\'' +
+                    ", album_no='" + album_no + '\'' +
+                    ", resource_type_ext='" + resource_type_ext + '\'' +
+                    ", resource_type='" + resource_type + '\'' +
+                    '}';
+        }
+
         /**
          * special_type : 0
          * pic_huge : http://musicdata.baidu.com/data2/pic/59cffb7aa3a14d30f14fefb1c08c0739/549122402/549122402.jpg@s_1,w_1000,h_1000
@@ -84,6 +136,9 @@ public class DownLoadMusicBean {
          * resource_type_ext : 0
          * resource_type : 0
          */
+
+
+
 
 
         private int special_type;
@@ -403,7 +458,22 @@ public class DownLoadMusicBean {
         }
     }
 
-    public static class BitrateBean {
+    public static class BitrateBean implements Serializable{
+        @Override
+        public String toString() {
+            return "BitrateBean{" +
+                    "show_link='" + show_link + '\'' +
+                    ", free=" + free +
+                    ", song_file_id=" + song_file_id +
+                    ", file_size=" + file_size +
+                    ", file_extension='" + file_extension + '\'' +
+                    ", file_duration=" + file_duration +
+                    ", file_bitrate=" + file_bitrate +
+                    ", file_link='" + file_link + '\'' +
+                    ", hash='" + hash + '\'' +
+                    '}';
+        }
+
         /**
          * show_link : http://zhangmenshiting.baidu.com/data2/music/e4fa62a4048f9e557d8af3e36374ec9b/549124828/549124828.mp3?xcode=d96b2722c520a570dcd0b1435228577d
          * free : 1
@@ -415,6 +485,9 @@ public class DownLoadMusicBean {
          * file_link : http://yinyueshiting.baidu.com/data2/music/e4fa62a4048f9e557d8af3e36374ec9b/549124828/549124828.mp3?xcode=d96b2722c520a570dcd0b1435228577d
          * hash : 27f99bed0364f4f7686d8453bcfbb7f9c43589ed
          */
+
+
+
 
         private String show_link;
         private int free;

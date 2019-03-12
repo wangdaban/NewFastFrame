@@ -1,18 +1,17 @@
 package com.example.commonlibrary.interceptor;
 
-import android.support.annotation.Nullable;
-
 import com.example.commonlibrary.net.OkHttpGlobalHandler;
 import com.example.commonlibrary.utils.CommonLogger;
-import com.example.commonlibrary.utils.IOUtils;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.util.concurrent.TimeUnit;
 
-import javax.inject.Inject;
 import javax.inject.Singleton;
 
+import androidx.annotation.Nullable;
 import okhttp3.Connection;
 import okhttp3.Headers;
 import okhttp3.Interceptor;
@@ -44,7 +43,6 @@ public class LogInterceptor implements Interceptor {
     private static final Charset UTF8 = Charset.forName("UTF-8");
 
 
-    @Inject
     public LogInterceptor(@Nullable OkHttpGlobalHandler okHttpGlobalHandler, @Nullable Level level) {
         handler = okHttpGlobalHandler;
         if (level != null) {
@@ -63,7 +61,7 @@ public class LogInterceptor implements Interceptor {
         }
 
         //请求日志拦截
-       logForRequest(request, chain.connection());
+        logForRequest(request, chain.connection());
 
         //执行请求，计算请求时间
         long startNs = System.nanoTime();
@@ -80,7 +78,7 @@ public class LogInterceptor implements Interceptor {
     }
 
 
-    private String  logForRequest(Request request, Connection connection) throws IOException {
+    private void logForRequest(Request request, Connection connection) throws IOException {
         boolean logBody = (printLevel == Level.BODY);
         boolean logHeaders = (printLevel == Level.BODY || printLevel == Level.HEADERS);
         RequestBody requestBody = request.body();
@@ -112,7 +110,7 @@ public class LogInterceptor implements Interceptor {
                 log(" ");
                 if (logBody && hasRequestBody) {
                     if (isPlaintext(requestBody.contentType())) {
-                       return bodyToString(request);
+                        bodyToString(request);
                     } else {
                         log("\tbody: maybe [binary body], omitted!");
                     }
@@ -123,12 +121,11 @@ public class LogInterceptor implements Interceptor {
         } finally {
             log("--> END " + request.method());
         }
-        return null;
     }
 
 
     private void log(String message) {
-//        logger.log(colorLevel, message);
+        //        logger.log(colorLevel, message);
         CommonLogger.e(message);
     }
 
@@ -148,10 +145,11 @@ public class LogInterceptor implements Interceptor {
                 }
                 log(" ");
                 if (logBody && HttpHeaders.hasBody(clone)) {
-                    if (responseBody == null) return response;
+                    if (responseBody == null)
+                        return response;
 
                     if (isPlaintext(responseBody.contentType())) {
-                        byte[] bytes = IOUtils.toByteArray(responseBody.byteStream());
+                        byte[] bytes = toByteArray(responseBody.byteStream());
                         MediaType contentType = responseBody.contentType();
                         String body = new String(bytes, getCharset(contentType));
                         log("\tbody:" + body);
@@ -178,24 +176,36 @@ public class LogInterceptor implements Interceptor {
         return response;
     }
 
+    private byte[] toByteArray(InputStream inputStream) throws IOException {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        int len;
+        byte[] buffer = new byte[4096];
+        while ((len = inputStream.read(buffer)) != -1)
+            output.write(buffer, 0, len);
+        output.close();
+        return output.toByteArray();
+    }
+
 
     private static Charset getCharset(MediaType contentType) {
         Charset charset = contentType != null ? contentType.charset() : UTF8;
-        if (charset == null) charset = UTF8;
+        if (charset == null)
+            charset = UTF8;
         return charset;
     }
 
 
     private static boolean isPlaintext(MediaType mediaType) {
-        if (mediaType == null) return false;
+        if (mediaType == null)
+            return false;
         if (mediaType.type() != null && mediaType.type().equals("text")) {
             return true;
         }
         String subtype = mediaType.subtype();
         if (subtype != null) {
             subtype = subtype.toLowerCase();
-            if (subtype.contains("x-www-form-urlencoded") || subtype.contains("json") || subtype.contains("xml") || subtype.contains("html")) //
-                return true;
+            return subtype.contains("x-www-form-urlencoded") || subtype.contains("json") || subtype.contains("xml") || subtype.contains("html")
+                    || subtype.contains("x-javascript");
         }
         return false;
     }
@@ -204,11 +214,12 @@ public class LogInterceptor implements Interceptor {
         try {
             Request copy = request.newBuilder().build();
             RequestBody body = copy.body();
-            if (body == null) return null;
+            if (body == null)
+                return null;
             Buffer buffer = new Buffer();
             body.writeTo(buffer);
             Charset charset = getCharset(body.contentType());
-            String str=buffer.readString(charset);
+            String str = buffer.readString(charset);
             log("\tbody:" + str);
             return str;
         } catch (Exception e) {

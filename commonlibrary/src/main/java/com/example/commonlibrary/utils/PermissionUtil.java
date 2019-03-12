@@ -1,12 +1,14 @@
 package com.example.commonlibrary.utils;
 
 import android.Manifest;
-import android.app.Activity;
+import android.annotation.SuppressLint;
 
 import com.tbruyelle.rxpermissions2.RxPermissions;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import androidx.fragment.app.FragmentActivity;
 
 
 /**
@@ -21,7 +23,7 @@ public class PermissionUtil {
     private PermissionUtil() {
     }
 
-    public static void requestTakePhoto(Activity activity, RequestPermissionCallBack callBack) {
+    public static void requestTakePhoto(FragmentActivity activity, RequestPermissionCallBack callBack) {
         requestPermission(callBack,new RxPermissions(activity),Manifest.permission.CAMERA);
     }
 
@@ -32,6 +34,7 @@ public class PermissionUtil {
     }
 
 
+    @SuppressLint("CheckResult")
     public static void requestPermission(final RequestPermissionCallBack requestPermission, RxPermissions rxPermissions, String... permissions) {
         if (permissions == null || permissions.length == 0) return;
         List<String> needRequest = new ArrayList<>();
@@ -74,7 +77,7 @@ public class PermissionUtil {
     }
 
 
-    public static void  requestLocation(RequestPermissionCallBack requestPermissionCallBack, Activity activity){
+    public static void  requestLocation(RequestPermissionCallBack requestPermissionCallBack, FragmentActivity activity){
         RxPermissions rxPermissions=new RxPermissions(activity);
         requestPermission(requestPermissionCallBack, rxPermissions, Manifest.permission.ACCESS_FINE_LOCATION
         ,Manifest.permission.ACCESS_COARSE_LOCATION,Manifest.permission.ACCESS_LOCATION_EXTRA_COMMANDS

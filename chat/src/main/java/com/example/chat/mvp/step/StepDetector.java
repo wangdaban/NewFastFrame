@@ -1,9 +1,17 @@
 package com.example.chat.mvp.step;
+
+import android.content.SharedPreferences;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 
+import com.example.chat.base.ConstantUtil;
+import com.example.chat.manager.UserManager;
+import com.example.commonlibrary.BaseApplication;
+import com.example.commonlibrary.bean.chat.StepData;
+import com.example.commonlibrary.utils.TimeUtil;
 
-public class StepDetector  {
+
+public class StepDetector {
 
     //存放三轴数据
     float[] oriValues = new float[3];
@@ -42,13 +50,37 @@ public class StepDetector  {
 
     private CallBack callBack;
 
-    public StepDetector(int stepCount,CallBack callBack){
-        this.callBack=callBack;
-        this.stepCount=stepCount;
+    public StepDetector(CallBack callBack) {
+        this.callBack = new CallBack() {
+            @Override
+            public void countStep(int stepCount) {
+                SharedPreferences sharedPreferences = BaseApplication.getAppComponent().getSharedPreferences();
+                String day = TimeUtil.getTime(System.currentTimeMillis(), "yyyy-MM-dd");
+                SharedPreferences.Editor editor = sharedPreferences.edit();
+                if (sharedPreferences.getBoolean(day, true)) {
+                    editor.putBoolean(day, false).putInt(ConstantUtil.STEP, 0).apply();
+                    StepData stepData = new StepData();
+                    stepData.setTime(TimeUtil.getTime(System.currentTimeMillis() - 24 * 60 * 60 * 1000L, "yyyy-MM-dd"));
+                    stepData.setUid(UserManager.getInstance().getCurrentUserObjectId());
+                    stepData.setStepCount(StepDetector.this.stepCount);
+                    BaseApplication.getAppComponent().getDaoSession().getStepDataDao().insertOrReplace(stepData);
+                    StepDetector.this.stepCount = 0;
+                    StepDetector.this.systemStepCount = 0;
+                    StepDetector.this.tempStep = 0;
+                    stepCount = 0;
+                } else {
+                    editor.putInt(ConstantUtil.STEP, stepCount).apply();
+                }
+                if (callBack != null) {
+                    callBack.countStep(stepCount);
+                }
+            }
+        };
+        this.stepCount = BaseApplication.getAppComponent().getSharedPreferences().getInt(ConstantUtil.STEP, 0);
     }
 
 
-    private int stepCount=0;
+    private int stepCount;
 
 
     public void setStepCount(int stepCount) {
@@ -62,34 +94,37 @@ public class StepDetector  {
     }
 
     private int systemStepCount;
+    private int tempStep = 0;
 
-    public void dealSensorEvent(SensorEvent sensorEvent){
+
+    public void dealSensorEvent(SensorEvent sensorEvent) {
         if (sensorEvent.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
             detectorNewStep(sensorEvent);
         } else if (sensorEvent.sensor.getType() == Sensor.TYPE_STEP_COUNTER) {
-            int step= (int) sensorEvent.values[0];
+            int step = (int) sensorEvent.values[0];
             if (systemStepCount == 0) {
-                systemStepCount=step;
-            }else {
-                stepCount=step-systemStepCount;
+                systemStepCount = step;
+            } else {
+                int add = step - systemStepCount - tempStep;
+                stepCount += add;
+                tempStep = step - systemStepCount;
                 callBack.countStep(stepCount);
             }
         } else if (sensorEvent.sensor.getType() == Sensor.TYPE_STEP_DETECTOR) {
-           if (sensorEvent.values[0]==1.0f){
-               stepCount++;
-               callBack.countStep(stepCount);
-           }
+            if (sensorEvent.values[0] == 1.0f) {
+                stepCount++;
+                callBack.countStep(stepCount);
+            }
         }
     }
 
 
-
     /*
-        * 检测步子，并开始计步
-        * 1.传入sersor中的数据
-        * 2.如果检测到了波峰，并且符合时间差以及阈值的条件，则判定为1步
-        * 3.符合时间差条件，波峰波谷差值大于initialValue，则将该差值纳入阈值的计算中
-        * */
+     * 检测步子，并开始计步
+     * 1.传入sersor中的数据
+     * 2.如果检测到了波峰，并且符合时间差以及阈值的条件，则判定为1步
+     * 3.符合时间差条件，波峰波谷差值大于initialValue，则将该差值纳入阈值的计算中
+     * */
     public void detectorNewStep(SensorEvent sensorEvent) {
         for (int i = 0; i < 3; i++) {
             oriValues[i] = sensorEvent.values[i];
@@ -189,11 +224,11 @@ public class StepDetector  {
         ave = ave / ValueNum;
         if (ave >= 8)
             ave = (float) 4.3;
-        else if (ave >= 7 && ave < 8)
+        else if (ave >= 7)
             ave = (float) 3.3;
-        else if (ave >= 4 && ave < 7)
+        else if (ave >= 4)
             ave = (float) 2.3;
-        else if (ave >= 3 && ave < 4)
+        else if (ave >= 3)
             ave = (float) 2.0;
         else {
             ave = (float) 1.3;
@@ -202,6 +237,6 @@ public class StepDetector  {
     }
 
     public interface CallBack {
-         void countStep(int stepCount);
+        void countStep(int stepCount);
     }
 }

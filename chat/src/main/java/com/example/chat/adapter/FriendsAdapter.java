@@ -6,7 +6,6 @@ import com.example.commonlibrary.baseadapter.adapter.BaseRecyclerAdapter;
 import com.example.commonlibrary.baseadapter.viewholder.BaseWrappedViewHolder;
 import com.example.commonlibrary.bean.chat.UserEntity;
 import com.example.commonlibrary.utils.AppUtil;
-import com.example.commonlibrary.utils.CommonUtil;
 
 /**
  * 项目名称:    PostDemo
@@ -33,7 +32,7 @@ public class FriendsAdapter extends BaseRecyclerAdapter<UserEntity, BaseWrappedV
 
     @Override
     protected void convert(BaseWrappedViewHolder holder, UserEntity data) {
-        holder.setText(R.id.tv_item_fragment_friends_name, data.getNick())
+        holder.setText(R.id.tv_item_fragment_friends_name, data.getName())
                 .setImageUrl(R.id.iv_item_fragment_friends_avatar, data.getAvatar());
         if (hasSelected){
             holder.setVisible(R.id.cb_item_fragment_friends_check,true)
@@ -44,7 +43,7 @@ public class FriendsAdapter extends BaseRecyclerAdapter<UserEntity, BaseWrappedV
         }
         if (isShouldShowTag(holder.getAdapterPosition() - getItemUpCount())) {
             holder.setVisible(R.id.tv_item_fragment_friends_tab, true)
-                    .setText(R.id.tv_item_fragment_friends_tab, AppUtil.getSortedKey(data.getNick()));
+                    .setText(R.id.tv_item_fragment_friends_tab, AppUtil.getSortedKey(data.getName()));
         } else {
             holder.setVisible(R.id.tv_item_fragment_friends_tab, false);
         }
@@ -55,7 +54,7 @@ public class FriendsAdapter extends BaseRecyclerAdapter<UserEntity, BaseWrappedV
             return true;
         }
         UserEntity preUser = getData(position - 1);
-        return !AppUtil.getSortedKey(preUser.getNick()).equals(AppUtil.getSortedKey(getData(position).getNick()));
+        return !AppUtil.getSortedKey(preUser.getName()).equals(AppUtil.getSortedKey(getData(position).getName()));
     }
 
     public void deleteFriendById(String uid) {

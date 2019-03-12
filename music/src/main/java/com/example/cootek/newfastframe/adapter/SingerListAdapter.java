@@ -3,23 +3,25 @@ package com.example.cootek.newfastframe.adapter;
 import com.example.commonlibrary.baseadapter.adapter.BaseRecyclerAdapter;
 import com.example.commonlibrary.baseadapter.viewholder.BaseWrappedViewHolder;
 import com.example.cootek.newfastframe.R;
-import com.example.commonlibrary.bean.music.SingerListBean;
+import com.example.cootek.newfastframe.bean.ArtistInfo;
 
 /**
- * Created by COOTEK on 2017/9/2.
+ * 项目名称:    NewFastFrame
+ * 创建人:      陈锦军
+ * 创建时间:    2018/12/26     11:33
  */
-
-public class SingerListAdapter extends BaseRecyclerAdapter<SingerListBean, BaseWrappedViewHolder> {
+public class SingerListAdapter extends BaseRecyclerAdapter<ArtistInfo, BaseWrappedViewHolder> {
     @Override
     protected int getLayoutId() {
         return R.layout.item_fragment_singer_list;
     }
 
     @Override
-    protected void convert(BaseWrappedViewHolder holder, SingerListBean data) {
-        holder.setText(R.id.tv_item_fragment_singer_list_name, data.getName())
-                .setText(R.id.tv_item_fragment_singer_list_count, data.getCount() + "首")
-                .setImageUrl(R.id.riv_item_fragment_singer_list_image, data.getAvatar(), R.drawable.icon_album_default, R.drawable.icon_album_default)
+    protected void convert(BaseWrappedViewHolder holder, ArtistInfo data) {
+        holder.setImageUrl(R.id.iv_item_fragment_singer_list_image, data.getAvatar_big())
+                .setText(R.id.tv_item_fragment_singer_list_name, data.getName())
+                .setText(R.id.tv_item_fragment_singer_list_song_num, data.getSongs_total())
+                .setText(R.id.tv_item_fragment_singer_list_album_num, data.getAlbums_total())
                 .setOnItemClickListener();
 
     }

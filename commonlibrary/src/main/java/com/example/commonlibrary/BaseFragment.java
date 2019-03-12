@@ -1,34 +1,35 @@
 package com.example.commonlibrary;
 
 import android.os.Bundle;
-import android.support.annotation.Nullable;
-import android.support.v4.app.Fragment;
-import android.support.v7.widget.Toolbar;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.AdapterView;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.RelativeLayout;
 import android.widget.TextView;
 
 import com.bumptech.glide.Glide;
 import com.example.commonlibrary.baseadapter.empty.EmptyLayout;
-import com.example.commonlibrary.cusotomview.ToolBarOption;
+import com.example.commonlibrary.baseadapter.listener.OnSimpleItemClickListener;
+import com.example.commonlibrary.customview.ToolBarOption;
+import com.example.commonlibrary.dagger.component.AppComponent;
 import com.example.commonlibrary.mvp.presenter.BasePresenter;
 import com.example.commonlibrary.mvp.view.IView;
 import com.example.commonlibrary.utils.CommonLogger;
 import com.example.commonlibrary.utils.StatusBarUtil;
 import com.example.commonlibrary.utils.ToastUtils;
-import com.trello.rxlifecycle2.LifecycleTransformer;
-import com.trello.rxlifecycle2.components.support.RxFragment;
+import com.trello.rxlifecycle3.LifecycleTransformer;
+import com.trello.rxlifecycle3.components.support.RxFragment;
+import com.umeng.analytics.MobclickAgent;
 
 import java.util.List;
 
 import javax.inject.Inject;
 
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.fragment.app.Fragment;
 import io.reactivex.disposables.CompositeDisposable;
 import io.reactivex.disposables.Disposable;
 
@@ -49,25 +50,35 @@ public abstract class BaseFragment<T, P extends BasePresenter> extends RxFragmen
     protected View root;
     private EmptyLayout mEmptyLayout;
     private boolean hasInit = false;
-    protected View headerLayout;
+    protected ViewGroup headerLayout;
     private ImageView icon;
     private TextView right;
     private TextView title;
     private ImageView rightImage;
     protected ImageView back;
 
+
     @Nullable
     @Inject
     protected P presenter;
+    private CompositeDisposable compositeDisposable;
 
 
-    private CompositeDisposable compositeDisposable=new CompositeDisposable();
+    protected boolean needRefreshData() {
+        return false;
+    }
 
 
-
-
-    protected void addDisposable(Disposable disposable){
+    protected void addDisposable(Disposable disposable) {
+        if (compositeDisposable == null) {
+            compositeDisposable = new CompositeDisposable();
+        }
         compositeDisposable.add(disposable);
+    }
+
+
+    protected AppComponent getAppComponent() {
+        return BaseApplication.getAppComponent();
     }
 
 
@@ -81,59 +92,59 @@ public abstract class BaseFragment<T, P extends BasePresenter> extends RxFragmen
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, Bundle savedInstanceState) {
         if (root == null) {
             if (isNeedHeadLayout()) {
-                LinearLayout linearLayout =new LinearLayout(getContext());
+                LinearLayout linearLayout = new LinearLayout(getContext());
                 linearLayout.setOrientation(LinearLayout.VERTICAL);
-                headerLayout =  LayoutInflater.from(getActivity()).inflate(R.layout.header_layout, null);
+                headerLayout = (ViewGroup) LayoutInflater.from(getActivity()).inflate(R.layout.header_layout, linearLayout, false);
                 linearLayout.addView(headerLayout);
                 if (isNeedEmptyLayout()) {
                     FrameLayout frameLayout = new FrameLayout(getActivity());
                     frameLayout.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-                    frameLayout.addView(LayoutInflater.from(getActivity()).inflate(getContentLayout(),null));
+                    LayoutInflater.from(getContext()).inflate(getContentLayout(), frameLayout);
                     mEmptyLayout = new EmptyLayout(getActivity());
                     mEmptyLayout.setVisibility(GONE);
                     mEmptyLayout.setContentView(frameLayout.getChildAt(0));
                     frameLayout.addView(mEmptyLayout);
                     linearLayout.addView(frameLayout);
                 } else {
-                    linearLayout.addView(LayoutInflater.from(getActivity()).inflate(getContentLayout(), null));
+                    LayoutInflater.from(getContext()).inflate(getContentLayout(), linearLayout);
                 }
-                root=linearLayout;
+                root = linearLayout;
             } else {
-                FrameLayout frameLayout =new FrameLayout(getContext());
-                frameLayout.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-                frameLayout.addView(LayoutInflater.from(getActivity()).inflate(getContentLayout(), null));
                 if (isNeedEmptyLayout()) {
+                    FrameLayout frameLayout = new FrameLayout(getContext());
+                    frameLayout.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+                    frameLayout.addView(LayoutInflater.from(getActivity()).inflate(getContentLayout(), null));
                     mEmptyLayout = new EmptyLayout(getActivity());
                     mEmptyLayout.setVisibility(GONE);
                     mEmptyLayout.setContentView(frameLayout.getChildAt(0));
                     frameLayout.addView(mEmptyLayout);
+                    root = frameLayout;
+                } else {
+                    root = LayoutInflater.from(getActivity()).inflate(getContentLayout(), null);
                 }
-                root = frameLayout;
             }
             if (root.getParent() != null) {
                 ((ViewGroup) root.getParent()).removeView(root);
             }
             if (container != null) {
-                CommonLogger.e("添加父类");
                 container.addView(root);
             }
             initBaseView();
             initData();
+            if (needStatusPadding()) {
+                StatusBarUtil.setStatusPadding(getPaddingView());
+            }
         }
         if (root.getParent() != null) {
             ((ViewGroup) root.getParent()).removeView(root);
-        }
-        if (needStatusPadding()) {
-                StatusBarUtil.setStatusPadding(getPaddingView());
         }
         return root;
     }
 
 
-
     private View getPaddingView() {
         if (needStatusPadding()) {
-            return headerLayout!=null?headerLayout:root;
+            return headerLayout != null ? headerLayout : root;
         }
         return null;
     }
@@ -151,8 +162,8 @@ public abstract class BaseFragment<T, P extends BasePresenter> extends RxFragmen
             rightImage = headerLayout.findViewById(R.id.iv_header_layout_right);
             rightImage.setVisibility(View.GONE);
             right.setVisibility(View.VISIBLE);
-            ((BaseActivity) getActivity()).setSupportActionBar(headerLayout.findViewById(R.id.toolbar));
-            ((BaseActivity) getActivity()).getSupportActionBar().setTitle("");
+            ((AppCompatActivity) getActivity()).setSupportActionBar(headerLayout.findViewById(R.id.toolbar));
+            ((AppCompatActivity) getActivity()).getSupportActionBar().setTitle("");
         }
         initView();
     }
@@ -163,19 +174,17 @@ public abstract class BaseFragment<T, P extends BasePresenter> extends RxFragmen
     }
 
 
-
-    public void showBaseDialog(String title,String message,String leftName,String rightName,View.OnClickListener leftListener, View.OnClickListener rightListener){
+    public void showBaseDialog(String title, String message, String leftName, String rightName, View.OnClickListener leftListener, View.OnClickListener rightListener) {
         ((BaseActivity) getActivity()).showBaseDialog(title, message, leftName, rightName, leftListener, rightListener);
-
     }
 
 
-    protected void updateTitle(String title) {
+    public void updateTitle(String title) {
         ((BaseActivity) getActivity()).updateTitle(title);
     }
 
 
-    protected View findViewById(int id) {
+    protected <V extends View> V findViewById(int id) {
         if (root != null) {
             return root.findViewById(id);
         }
@@ -200,11 +209,76 @@ public abstract class BaseFragment<T, P extends BasePresenter> extends RxFragmen
     @Override
     public void setUserVisibleHint(boolean isVisibleToUser) {
         super.setUserVisibleHint(isVisibleToUser);
-        if (root != null && isVisibleToUser && !hasInit) {
-            hasInit = true;
-            updateView();
+        if (root != null) {
+            recordFragment(isVisibleToUser);
+        }
+        if (root != null && isVisibleToUser) {
+            if (!hasInit) {
+                hasInit = true;
+                updateView();
+            } else if (needRefreshData()) {
+                updateView();
+            }
+        }
+
+    }
+
+
+    protected boolean needRecordFragment() {
+        return true;
+    }
+
+
+    private boolean hasRecord = false;
+
+    protected void recordFragment(boolean isVisible) {
+        if (!needRecordFragment()) {
+
+            if (isHidden()) {
+                if (getChildFragmentManager().getFragments() != null) {
+                    for (Fragment item :
+                            getChildFragmentManager().getFragments()) {
+                        item.onHiddenChanged(true);
+                    }
+                }
+                if (getFragmentManager() != null) {
+                    for (Fragment item :
+                            getFragmentManager().getFragments()) {
+                        item.onHiddenChanged(true);
+                    }
+                }
+                if (getActivity().getSupportFragmentManager().getFragments() != null) {
+                    for (Fragment item :
+                            getActivity().getSupportFragmentManager().getFragments()) {
+                        item.onHiddenChanged(true);
+                    }
+                }
+            }
+            return;
+        }
+        if (isVisible) {
+            if (!hasRecord) {
+                hasRecord = true;
+                CommonLogger.e(this.getClass().getName() + "开始" + "visible:" + getUserVisibleHint());
+                MobclickAgent.onPageStart(this.getClass().getName());
+            }
+        } else {
+            if (hasRecord) {
+                hasRecord = false;
+                CommonLogger.e(this.getClass().getName() + "结束");
+                MobclickAgent.onPageEnd(this.getClass().getName());
+            }
         }
     }
+
+
+    @Override
+    public void onHiddenChanged(boolean hidden) {
+        if (root != null) {
+            recordFragment(!hidden);
+        }
+    }
+
 
     protected abstract int getContentLayout();
 
@@ -232,7 +306,7 @@ public abstract class BaseFragment<T, P extends BasePresenter> extends RxFragmen
         }
         if (option.getAvatar() != null) {
             icon.setVisibility(View.VISIBLE);
-            Glide.with(this).load(option.getAvatar()).into(icon);
+            Glide.with(BaseApplication.getInstance()).load(option.getAvatar()).into(icon);
         } else {
             icon.setVisibility(GONE);
         }
@@ -297,8 +371,7 @@ public abstract class BaseFragment<T, P extends BasePresenter> extends RxFragmen
     }
 
 
-
-    protected void dismissLoadDialog(){
+    protected void dismissLoadDialog() {
         if (!getActivity().isFinishing()) {
             if (getActivity() instanceof BaseActivity) {
                 ((BaseActivity) getActivity()).dismissLoadDialog();
@@ -308,16 +381,12 @@ public abstract class BaseFragment<T, P extends BasePresenter> extends RxFragmen
 
 
     protected void hideBaseDialog() {
-        if (getActivity() instanceof BaseActivity && !getActivity().isFinishing()) {
-            ((BaseActivity) getActivity()).dismissBaseDialog();
-        }
+
     }
 
 
-    protected void showChooseDialog(String title, List<String> list, AdapterView.OnItemClickListener listener) {
-        if (getActivity() instanceof BaseActivity && !getActivity().isFinishing()) {
-            ((BaseActivity) getActivity()).showChooseDialog(title, list, listener);
-        }
+    protected void showChooseDialog(String title, List<String> list, OnSimpleItemClickListener listener) {
+        ((BaseActivity) getActivity()).showChooseDialog(title, list, listener);
     }
 
     @Override
@@ -330,6 +399,9 @@ public abstract class BaseFragment<T, P extends BasePresenter> extends RxFragmen
         } else {
             ToastUtils.showShortToast(errorMsg);
         }
+        if (errorMsg != null) {
+            CommonLogger.e(errorMsg);
+        }
     }
 
 
@@ -340,23 +412,29 @@ public abstract class BaseFragment<T, P extends BasePresenter> extends RxFragmen
     }
 
 
+    public int getLayoutStatus() {
+        return mEmptyLayout.getCurrentStatus();
+    }
+
+
     @Override
     public void onDestroyView() {
         super.onDestroyView();
-        if (compositeDisposable != null) {
-            if (!compositeDisposable.isDisposed()) {
-                compositeDisposable.dispose();
-            }
-        }
     }
 
 
     @Override
     public void onDestroy() {
         super.onDestroy();
+        if (compositeDisposable != null) {
+            if (!compositeDisposable.isDisposed()) {
+                compositeDisposable.dispose();
+            }
+        }
         if (presenter != null) {
             presenter.onDestroy();
         }
+        recordFragment(false);
     }
 
     @Override
@@ -410,8 +488,19 @@ public abstract class BaseFragment<T, P extends BasePresenter> extends RxFragmen
     }
 
 
+    protected void addBackStackFragment(Fragment fragment, View... views) {
+        ((BaseActivity) getActivity()).addBackStackFragment(fragment, true, views);
+    }
 
 
+    protected void addBackStackFragment(Fragment fragment) {
+        ((BaseActivity) getActivity()).addBackStackFragment(fragment, true);
+    }
+
+
+    protected void addBackStackFragment(Fragment fragment, boolean needAddBackStack, View... views) {
+        ((BaseActivity) getActivity()).addBackStackFragment(fragment, needAddBackStack, views);
+    }
 
 
 }

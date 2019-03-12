@@ -1,9 +1,8 @@
 package com.example.chat.dagger.login;
 
-import com.example.chat.MainRepositoryManager;
-import com.example.chat.mvp.login.LoginModel;
-import com.example.chat.mvp.login.LoginPresenter;
-import com.example.chat.mvp.login.LoginActivity;
+import com.example.chat.mvp.login.pw.PwLoginFragment;
+import com.example.chat.mvp.login.pw.PwLoginPresenter;
+import com.example.commonlibrary.mvp.model.DefaultModel;
 
 import dagger.Module;
 import dagger.Provides;
@@ -16,24 +15,21 @@ import dagger.Provides;
  */
 @Module
 public class LoginModule {
-    private LoginActivity loginActivity;
+    private PwLoginFragment mPwLoginFragment;
 
 
-    public LoginModule(LoginActivity loginActivity) {
-        this.loginActivity = loginActivity;
+    public LoginModule(PwLoginFragment pwLoginFragment) {
+        this.mPwLoginFragment=pwLoginFragment;
     }
 
 
     @Provides
-    public LoginPresenter providerPresenter(LoginModel loginModel) {
-        return new LoginPresenter(loginActivity, loginModel);
+    public PwLoginPresenter providerPresenter(DefaultModel defaultModel) {
+        return new PwLoginPresenter(mPwLoginFragment, defaultModel);
     }
 
 
-    @Provides
-    public LoginModel providerModel(MainRepositoryManager mainRepositoryManager) {
-        return new LoginModel(mainRepositoryManager);
-    }
+
 
 
 }

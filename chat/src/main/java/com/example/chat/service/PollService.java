@@ -1,20 +1,17 @@
 package com.example.chat.service;
 
-import android.app.Service;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Build;
 import android.os.IBinder;
-import android.support.annotation.Nullable;
 
 import com.example.chat.R;
-import com.example.chat.base.Constant;
+import com.example.chat.base.ConstantUtil;
 import com.example.chat.bean.BaseMessage;
 import com.example.chat.bean.ChatMessage;
 import com.example.chat.bean.PostNotifyBean;
@@ -37,6 +34,7 @@ import com.example.chat.util.TimeUtil;
 import com.example.commonlibrary.bean.chat.PostNotifyInfo;
 import com.example.commonlibrary.bean.chat.StepData;
 import com.example.commonlibrary.bean.chat.SystemNotifyEntity;
+import com.example.commonlibrary.keeplive.service.KeepLiveService;
 import com.example.commonlibrary.rxbus.RxBusManager;
 import com.example.commonlibrary.utils.CommonLogger;
 
@@ -44,6 +42,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import androidx.annotation.Nullable;
 import cn.bmob.v3.BmobBatch;
 import cn.bmob.v3.BmobObject;
 import cn.bmob.v3.BmobQuery;
@@ -66,37 +65,41 @@ import io.reactivex.disposables.Disposable;
  * QQ:             1981367757
  */
 
-public class PollService extends Service implements SensorEventListener{
+public class PollService extends KeepLiveService implements SensorEventListener {
 
     private Disposable disposable;
     private StepDetector stepDetector;
     private BroadcastReceiver receiver;
+    private static int time = 30;
 
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
+        CommonLogger.e("PollService:::onBind");
         return null;
     }
 
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        int time;
+        CommonLogger.e("PollService:::onStartCommand");
         if (intent != null) {
-            time = intent.getIntExtra(Constant.TIME, 30);
-        } else {
-            time = 30;
+            time = intent.getIntExtra(ConstantUtil.TIME, 30);
         }
         if (disposable != null && !disposable.isDisposed()) {
             disposable.dispose();
         }
 
-        if (UserDBManager.getInstance().getStepData(TimeUtil
-                .getTime(System.currentTimeMillis(),"yyyy-MM-dd"))==null){
-            BmobQuery<StepBean> bmobQuery=new BmobQuery<>();
-            bmobQuery.addWhereEqualTo("time",TimeUtil
-                    .getTime(System.currentTimeMillis(),"yyyy-MM-dd"));
-            bmobQuery.addWhereEqualTo("user",new BmobPointer(UserManager.getInstance().getCurrentUser()));
+
+        if (UserManager.getInstance().getCurrentUserObjectId() == null) {
+            return super.onStartCommand(intent, flags, startId);
+        }
+        if (UserManager.getInstance().getCurrentUserObjectId() != null && UserDBManager.getInstance().getStepData(TimeUtil
+                .getTime(System.currentTimeMillis(), "yyyy-MM-dd")) == null) {
+            BmobQuery<StepBean> bmobQuery = new BmobQuery<>();
+            bmobQuery.addWhereEqualTo("time", TimeUtil
+                    .getTime(System.currentTimeMillis(), "yyyy-MM-dd"));
+            bmobQuery.addWhereEqualTo("user", new BmobPointer(UserManager.getInstance().getCurrentUser()));
             bmobQuery.include("user");
             bmobQuery.findObjects(new FindListener<StepBean>() {
                 @Override
@@ -138,67 +141,62 @@ public class PollService extends Service implements SensorEventListener{
 
                     }
                 });
-
-        return super.onStartCommand(intent, START_FLAG_RETRY, startId);
+        return super.onStartCommand(intent, flags, startId);
     }
-
-
-
 
 
     private void dealStep() {
         dealReceiver();
-        SensorManager sensorManager= (SensorManager) getSystemService(Context.SENSOR_SERVICE);
-        if (sensorManager==null)return;
-        Sensor sensor=null;
+        SensorManager sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        if (sensorManager == null)
+            return;
+        Sensor sensor = null;
         if (Build.VERSION.SDK_INT > 19) {
-             sensor=sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER);
+            sensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER);
             if (sensor == null) {
-                sensor=sensorManager.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR);
+                sensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR);
             }
         }
         if (sensor == null) {
-            sensor=sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+            sensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         }
-        StepData stepData=UserDBManager.getInstance()
-                .getStepData(TimeUtil.getTime(System.currentTimeMillis(),"yyyy-MM-dd"));
-        int count=0;
-        if (stepData != null) {
-            count=stepData.getStepCount();
-        }
-        stepDetector=new StepDetector(count, stepCount -> {
-            CommonLogger.e("step:"+stepCount);
+        stepDetector = new StepDetector(stepCount -> {
+            CommonLogger.e("step:" + stepCount);
             RxBusManager.getInstance().post(new StepEvent(stepCount));
         });
 
-        sensorManager.registerListener(this,sensor,SensorManager.SENSOR_DELAY_NORMAL);
+        sensorManager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_NORMAL);
     }
 
     private void dealReceiver() {
-        IntentFilter intentFilter = new IntentFilter();
-        intentFilter.addAction(Intent.ACTION_SCREEN_OFF);
-        intentFilter.addAction(Intent.ACTION_SCREEN_ON);
-        intentFilter.addAction(Intent.ACTION_CLOSE_SYSTEM_DIALOGS);
-        intentFilter.addAction(Intent.ACTION_SHUTDOWN);
-        intentFilter.addAction(Intent.ACTION_DATE_CHANGED);
-        registerReceiver(receiver=new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                if (intent.getAction()==null)return;
-                    if (intent.getAction().equals(Intent.ACTION_DATE_CHANGED)){
-                        stepDetector.setStepCount(0);
-                    }else {
-                        saveStepData();
-                    }
-            }
-        },intentFilter);
+        //        IntentFilter intentFilter = new IntentFilter();
+        //        intentFilter.addAction(Intent.ACTION_SCREEN_OFF);
+        //        intentFilter.addAction(Intent.ACTION_SCREEN_ON);
+        //        intentFilter.addAction(Intent.ACTION_CLOSE_SYSTEM_DIALOGS);
+        //        intentFilter.addAction(Intent.ACTION_SHUTDOWN);
+        //        intentFilter.addAction(Intent.ACTION_DATE_CHANGED);
+        //        registerReceiver(receiver = new BroadcastReceiver() {
+        //            @Override
+        //            public void onReceive(Context context, Intent intent) {
+        //                if (intent.getAction() == null)
+        //                    return;
+        //                if (intent.getAction().equals(Intent.ACTION_DATE_CHANGED)) {
+        //                    stepDetector.setStepCount(0);
+        //                } else {
+        //                    saveStepData();
+        //                }
+        //            }
+        //        }, intentFilter);
     }
 
     private void saveStepData() {
-        String currentTime=TimeUtil.getTime(System.currentTimeMillis(),"yyyy-MM-dd");
-       StepData data=UserDBManager.getInstance().getStepData(currentTime);
+        if (UserManager.getInstance().getCurrentUserObjectId() == null) {
+            return;
+        }
+        String currentTime = TimeUtil.getTime(System.currentTimeMillis(), "yyyy-MM-dd");
+        StepData data = UserDBManager.getInstance().getStepData(currentTime);
         if (data != null) {
-            StepBean stepBean=new StepBean();
+            StepBean stepBean = new StepBean();
             stepBean.setStepCount(data.getStepCount());
             stepBean.setTime(currentTime);
             stepBean.setUser(UserManager.getInstance().getCurrentUser());
@@ -207,29 +205,35 @@ public class PollService extends Service implements SensorEventListener{
                 stepBean.update(new UpdateListener() {
                     @Override
                     public void done(BmobException e) {
-                        UserDBManager.getInstance().getDaoSession().update(MsgManager.getInstance()
-                                .cover(stepBean));
+                        if (UserManager.getInstance().getCurrentUserObjectId() != null) {
+                            UserDBManager.getInstance().getDaoSession().insertOrReplace(MsgManager.getInstance()
+                                    .cover(stepBean));
+                        }
                     }
                 });
-            }else {
+            } else {
                 stepBean.save(new SaveListener<String>() {
                     @Override
                     public void done(String s, BmobException e) {
-                        UserDBManager.getInstance().getDaoSession().update(MsgManager.getInstance()
-                                .cover(stepBean));
+                        if (UserManager.getInstance().getCurrentUserObjectId() != null) {
+                            UserDBManager.getInstance().getDaoSession().insertOrReplace(MsgManager.getInstance()
+                                    .cover(stepBean));
+                        }
                     }
                 });
             }
-        }else if (stepDetector.getStepCount()!=0){
-            StepBean stepBean=new StepBean();
+        } else if (stepDetector.getStepCount() != 0) {
+            StepBean stepBean = new StepBean();
             stepBean.setStepCount(stepDetector.getStepCount());
             stepBean.setTime(currentTime);
             stepBean.setUser(UserManager.getInstance().getCurrentUser());
             stepBean.save(new SaveListener<String>() {
                 @Override
                 public void done(String s, BmobException e) {
-                    UserDBManager.getInstance().getDaoSession().insert(MsgManager.getInstance()
-                    .cover(stepBean));
+                    if (UserManager.getInstance().getCurrentUserObjectId() != null) {
+                        UserDBManager.getInstance().getDaoSession().insert(MsgManager.getInstance()
+                                .cover(stepBean));
+                    }
                 }
             });
 
@@ -237,23 +241,22 @@ public class PollService extends Service implements SensorEventListener{
     }
 
     private void dealWork() {
-        LogUtil.e("拉取单聊消息");
-        BmobQuery<ChatMessage> query = new BmobQuery<>();
-        if (UserManager.getInstance().getCurrentUser() != null) {
-            query.addWhereEqualTo(Constant.TAG_TO_ID, UserManager.getInstance().getCurrentUserObjectId());
-        } else {
+        if (UserManager.getInstance().getCurrentUserObjectId() == null) {
             return;
         }
-        query.addWhereEqualTo(Constant.TAG_MESSAGE_SEND_STATUS, Constant.SEND_STATUS_SUCCESS);
-        query.addWhereEqualTo(Constant.TAG_MESSAGE_READ_STATUS, Constant.READ_STATUS_UNREAD);
-//                按升序进行排序
+        CommonLogger.e("拉取单聊消息");
+        BmobQuery<ChatMessage> query = new BmobQuery<>();
+        query.addWhereEqualTo(ConstantUtil.TAG_TO_ID, UserManager.getInstance().getCurrentUserObjectId());
+        query.addWhereEqualTo(ConstantUtil.TAG_MESSAGE_SEND_STATUS, ConstantUtil.SEND_STATUS_SUCCESS);
+        query.addWhereEqualTo(ConstantUtil.TAG_MESSAGE_READ_STATUS, ConstantUtil.READ_STATUS_UNREAD);
+        //                按升序进行排序
         query.setLimit(50);
         query.order("createdAt");
         query.findObjects(new FindListener<ChatMessage>() {
             @Override
             public void done(List<ChatMessage> list, BmobException e) {
                 if (e == null) {
-                    LogUtil.e("1拉取单聊消息成功");
+                    LogUtil.e("拉取单聊消息成功");
                     if (list != null && list.size() > 0) {
                         for (ChatMessage item :
                                 list) {
@@ -287,10 +290,10 @@ public class PollService extends Service implements SensorEventListener{
                 }
             }
         });
-
+        MsgManager.getInstance().getPersonChatInfo(getBaseContext());
         BmobQuery<PostNotifyBean> bmobQuery = new BmobQuery<>();
         bmobQuery.addWhereEqualTo("toUser", new BmobPointer(UserManager.getInstance().getCurrentUser()));
-        bmobQuery.addWhereEqualTo("readStatus", Constant.READ_STATUS_UNREAD);
+        bmobQuery.addWhereEqualTo("readStatus", ConstantUtil.READ_STATUS_UNREAD);
         bmobQuery.include("relatedUser");
         bmobQuery.findObjects(new FindListener<PostNotifyBean>() {
             @Override
@@ -303,11 +306,11 @@ public class PollService extends Service implements SensorEventListener{
                             PostNotifyInfo postNotifyInfo = new PostNotifyInfo();
                             postNotifyInfo.setId(item.getObjectId());
                             postNotifyInfo.setType(item.getType());
-                            postNotifyInfo.setReadStatus(Constant.READ_STATUS_UNREAD);
+                            postNotifyInfo.setReadStatus(ConstantUtil.READ_STATUS_UNREAD);
                             result.add(postNotifyInfo);
-                            item.setReadStatus(Constant.READ_STATUS_READED);
+                            item.setReadStatus(ConstantUtil.READ_STATUS_READED);
                         }
-                        List<BmobObject>  update=new ArrayList<>(list);
+                        List<BmobObject> update = new ArrayList<>(list);
                         new BmobBatch().updateBatch(update).doBatch(new QueryListListener<BatchResult>() {
                             @Override
                             public void done(List<BatchResult> results, BmobException e) {
@@ -317,8 +320,8 @@ public class PollService extends Service implements SensorEventListener{
                                     UserDBManager.getInstance().addOrUpdateUser(list.get(0).getRelatedUser());
                                     RxBusManager.getInstance().post(new UnReadPostNotifyEvent(list.get(0)));
                                     ChatNotificationManager.getInstance(getBaseContext()).showNotification(null, getBaseContext(), "你有一条帖子相关通知", R.mipmap.ic_launcher, "你有一条帖子相关通知", CommentNotifyActivity.class);
-                                }else {
-                                    CommonLogger.e("批量更新帖子相关通知已读失败"+e.toString());
+                                } else {
+                                    CommonLogger.e("批量更新帖子相关通知已读失败" + e.toString());
                                 }
                             }
                         });
@@ -331,7 +334,7 @@ public class PollService extends Service implements SensorEventListener{
             }
         });
         BmobQuery<SystemNotifyBean> query1 = new BmobQuery<>();
-        query1.addWhereEqualTo("readStatus", Constant.READ_STATUS_UNREAD);
+        query1.addWhereEqualTo("readStatus", ConstantUtil.READ_STATUS_UNREAD);
         query1.findObjects(new FindListener<SystemNotifyBean>() {
             @Override
             public void done(List<SystemNotifyBean> list, BmobException e) {
@@ -341,13 +344,13 @@ public class PollService extends Service implements SensorEventListener{
                         for (SystemNotifyBean item : list
                                 ) {
                             SystemNotifyEntity systemNotifyEntity = new SystemNotifyEntity();
-                            systemNotifyEntity.setReadStatus(Constant.READ_STATUS_UNREAD);
+                            systemNotifyEntity.setReadStatus(ConstantUtil.READ_STATUS_UNREAD);
                             systemNotifyEntity.setTitle(item.getTitle());
                             systemNotifyEntity.setSubTitle(item.getSubTitle());
                             systemNotifyEntity.setImageUrl(item.getImageUrl());
                             systemNotifyEntity.setContentUrl(item.getContentUrl());
                             systemNotifyEntity.setId(item.getObjectId());
-                            item.setReadStatus(Constant.READ_STATUS_READED);
+                            item.setReadStatus(ConstantUtil.READ_STATUS_READED);
                             result.add(systemNotifyEntity);
                         }
                         List<BmobObject> update = new ArrayList<>(list);
@@ -378,10 +381,11 @@ public class PollService extends Service implements SensorEventListener{
 
     @Override
     public void onDestroy() {
+        CommonLogger.e("PollService:::onDestroy");
         if (disposable != null) {
             disposable.dispose();
         }
-        if (receiver!=null) {
+        if (receiver != null) {
             unregisterReceiver(receiver);
         }
         super.onDestroy();

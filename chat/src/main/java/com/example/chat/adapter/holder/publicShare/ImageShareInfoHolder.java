@@ -1,17 +1,9 @@
 package com.example.chat.adapter.holder.publicShare;
 
-import android.graphics.drawable.Drawable;
-import android.support.v7.widget.GridLayoutManager;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewStub;
-import android.widget.ImageView;
 
-import com.bumptech.glide.Glide;
-import com.bumptech.glide.load.engine.DiskCacheStrategy;
-import com.bumptech.glide.load.resource.drawable.GlideDrawable;
-import com.bumptech.glide.request.animation.GlideAnimation;
-import com.bumptech.glide.request.target.SimpleTarget;
 import com.example.chat.R;
 import com.example.chat.bean.post.PostDataBean;
 import com.example.commonlibrary.baseadapter.SuperRecyclerView;
@@ -19,8 +11,10 @@ import com.example.commonlibrary.baseadapter.adapter.BaseRecyclerAdapter;
 import com.example.commonlibrary.baseadapter.listener.OnSimpleItemClickListener;
 import com.example.commonlibrary.baseadapter.manager.WrappedGridLayoutManager;
 import com.example.commonlibrary.baseadapter.viewholder.BaseWrappedViewHolder;
-import com.example.commonlibrary.cusotomview.GridSpaceDecoration;
+import com.example.commonlibrary.baseadapter.decoration.GridSpaceDecoration;
 import com.example.commonlibrary.utils.DensityUtil;
+
+import androidx.recyclerview.widget.GridLayoutManager;
 
 /**
  * 项目名称:    NewFastFrame
@@ -38,6 +32,12 @@ public class ImageShareInfoHolder extends BaseShareInfoViewHolder {
         ViewStub viewStub = itemView.findViewById(R.id.vs_item_fragment_share_info_stub);
         viewStub.setLayoutResource(R.layout.item_fragment_share_info_image);
         display = (SuperRecyclerView) viewStub.inflate();
+        display.setNestedScrollingEnabled(false);
+    }
+
+
+    public SuperRecyclerView getDisplay() {
+        return display;
     }
 
 
@@ -50,10 +50,10 @@ public class ImageShareInfoHolder extends BaseShareInfoViewHolder {
             }
             if (size <= 4) {
                 display.setLayoutManager(new WrappedGridLayoutManager(getContext(), 2));
-                display.addItemDecoration(itemDecoration=new GridSpaceDecoration(2, DensityUtil.toDp(5), false));
+                display.addItemDecoration(itemDecoration = new GridSpaceDecoration(2, DensityUtil.toDp(5), false));
             } else {
                 display.setLayoutManager(new WrappedGridLayoutManager(getContext(), 3));
-                display.addItemDecoration(itemDecoration=new GridSpaceDecoration(3, DensityUtil.toDp(5), false));
+                display.addItemDecoration(itemDecoration = new GridSpaceDecoration(3, DensityUtil.toDp(5), false));
             }
             final ImageShareAdapter adapter = new ImageShareAdapter();
             display.setAdapter(adapter);
@@ -65,7 +65,7 @@ public class ImageShareInfoHolder extends BaseShareInfoViewHolder {
                             .onItemChildClick(getAdapterPosition() - getAdapter().getItemUpCount(), view, position);
                 }
             });
-            adapter.addData(data.getImageList());
+            adapter.refreshData(data.getImageList());
         }
     }
 
@@ -80,7 +80,7 @@ public class ImageShareInfoHolder extends BaseShareInfoViewHolder {
 
         @Override
         public BaseWrappedViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-//           return super.onCreateViewHolder(parent, viewType);
+            //           return super.onCreateViewHolder(parent, viewType);
             BaseWrappedViewHolder baseWrappedViewHolder = super.onCreateViewHolder(parent, viewType);
             int size = getSizeBySpanCount(parent);
             baseWrappedViewHolder.itemView.setLayoutParams(new GridLayoutManager.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, size));

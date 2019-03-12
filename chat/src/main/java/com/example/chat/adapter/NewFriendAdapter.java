@@ -1,7 +1,7 @@
 package com.example.chat.adapter;
 import com.example.chat.R;
-import com.example.chat.base.Constant;
-import com.example.chat.bean.User;
+import com.example.chat.base.ConstantUtil;
+import com.example.commonlibrary.bean.chat.User;
 import com.example.chat.manager.UserManager;
 import com.example.commonlibrary.baseadapter.adapter.BaseSwipeRecyclerAdapter;
 import com.example.commonlibrary.baseadapter.viewholder.BaseWrappedViewHolder;
@@ -40,10 +40,10 @@ public class NewFriendAdapter extends BaseSwipeRecyclerAdapter<ChatMessageEntity
                                 }
                         }
                 });
-                if (data.getReadStatus()==Constant.READ_STATUS_READED) {
+                if (data.getReadStatus()==ConstantUtil.READ_STATUS_READED) {
                         holder.setVisible(R.id.tv_new_friend_item_agree, true);
                         holder.setVisible(R.id.btn_new_friend_item_agree, false);
-                } else if (data.getReadStatus()==Constant.READ_STATUS_READED) {
+                } else if (data.getReadStatus()==ConstantUtil.READ_STATUS_READED) {
                         holder.setVisible(R.id.btn_new_friend_item_agree, false);
                         holder.setVisible(R.id.tv_new_friend_item_agree, true);
                 }

@@ -7,8 +7,8 @@ import android.widget.RelativeLayout;
 
 import com.example.chat.R;
 import com.example.chat.mvp.account.password.PasswordChangeActivity;
-import com.example.chat.base.SlideBaseActivity;
-import com.example.commonlibrary.cusotomview.ToolBarOption;
+import com.example.chat.base.ChatBaseActivity;
+import com.example.commonlibrary.customview.ToolBarOption;
 
 /**
  * 项目名称:    NewFastFrame
@@ -17,7 +17,7 @@ import com.example.commonlibrary.cusotomview.ToolBarOption;
  * QQ:         1981367757
  */
 
-public class AccountManageActivity extends SlideBaseActivity implements View.OnClickListener {
+public class AccountManageActivity extends ChatBaseActivity implements View.OnClickListener {
     @Override
     public void updateData(Object o) {
 

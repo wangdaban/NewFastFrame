@@ -6,10 +6,13 @@ import com.example.cootek.newfastframe.bean.ArtistSongsBean;
 import com.example.cootek.newfastframe.bean.DownLoadMusicBean;
 import com.example.cootek.newfastframe.bean.RankListBean;
 import com.example.cootek.newfastframe.bean.RecommendSongBean;
+import com.example.cootek.newfastframe.bean.RelatedSongBean;
 import com.example.cootek.newfastframe.bean.SearchMusicBean;
+import com.example.cootek.newfastframe.bean.SingerAlbumBean;
 import com.example.cootek.newfastframe.bean.SongMenuBean;
 
 import io.reactivex.Observable;
+import okhttp3.ResponseBody;
 import retrofit2.http.GET;
 import retrofit2.http.Query;
 import retrofit2.http.Url;
@@ -63,7 +66,7 @@ public interface MusicApi {
      * @return
      */
     @GET("/v1/restserver/ting?from=android&version=5.6.5.6&format=json&method=baidu.ting.song.getRecommandSongList")
-    public Observable<ArtistSongsBean> getReCommendSongList(@Query("song_id") String songId, @Query("num") int unm);
+    public Observable<RelatedSongBean> getReCommendSongList(@Query("song_id") String songId, @Query("num") int unm);
 
     /**
      * 获取歌曲的基本信息，包括播放地址和歌词地址
@@ -93,6 +96,16 @@ public interface MusicApi {
 
     @GET("/v1/restserver/ting?from=android&version=5.6.5.6&format=json&method=baidu.ting.album.getAlbumInfo")
     public Observable<AlbumBean> getAlbumData(@Query("album_id") String albumId);
+
+
+    @GET
+    public Observable<ResponseBody> getLrcContent(@Url String url);
+
+
+
+//    http://music.taihe.com/data/user/getalbums?start=0&size=12&ting_uid=2517&order=time
+    @GET
+    public Observable<SingerAlbumBean> getSingerAlbumInfo(@Url String url);
 
 
 }

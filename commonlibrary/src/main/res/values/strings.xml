@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">common</string>
+
+    <string name="behavior_footer">com.example.commonlibrary.customview.behavior.FooterBehavior</string>
+    <string name="behavior_scale_fab">com.example.commonlibrary.customview.behavior.FabScaleBehavior</string>
+
 </resources>

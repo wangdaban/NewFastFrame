@@ -1,41 +1,15 @@
 package com.example.chat.util;
 
-import android.app.Activity;
-import android.app.ActivityManager;
 import android.content.Context;
-import android.graphics.Bitmap;
-import android.graphics.Canvas;
-import android.graphics.Color;
-import android.graphics.Paint;
-import android.graphics.PorterDuff;
-import android.graphics.PorterDuffXfermode;
-import android.graphics.Rect;
-import android.graphics.RectF;
-import android.net.ConnectivityManager;
-import android.net.NetworkInfo;
-import android.os.Environment;
 import android.text.TextUtils;
-import android.util.DisplayMetrics;
 import android.view.View;
 import android.view.inputmethod.InputMethodManager;
 
 import com.amap.api.maps.AMapUtils;
 import com.amap.api.maps.model.LatLng;
 import com.example.chat.manager.UserManager;
-import com.example.commonlibrary.BaseApplication;
-import com.example.commonlibrary.utils.DensityUtil;
-
-import net.sourceforge.pinyin4j.PinyinHelper;
-import net.sourceforge.pinyin4j.format.HanyuPinyinOutputFormat;
-import net.sourceforge.pinyin4j.format.HanyuPinyinToneType;
-import net.sourceforge.pinyin4j.format.exception.BadHanyuPinyinOutputFormatCombination;
 
 import java.security.MessageDigest;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 
 
@@ -109,9 +83,10 @@ public class CommonUtils {
 
 
 
-        public static boolean isPhone(String content) {
-//                先暂时测试
-                return content.length() == 11;
+        public static boolean isPhone(String mobiles) {
+                String telRegex = "[1][358]\\d{9}";//"[1]"代表第1位为数字1，"[358]"代表第二位可以为3、5、8中的一个，"\\d{9}"代表后面是可以是0～9的数字，有9位。
+                if (TextUtils.isEmpty(mobiles)) return false;
+                else return mobiles.matches(telRegex);
         }
 
         public static String getDistance(double longitude, double latitude) {

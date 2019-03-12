@@ -1,14 +1,11 @@
 package com.example.chat.mvp.commentnotify;
 
 import com.example.chat.base.AppBasePresenter;
-import com.example.chat.base.Constant;
-import com.example.chat.bean.CommentNotifyBean;
+import com.example.chat.base.ConstantUtil;
 import com.example.chat.bean.PostNotifyBean;
-import com.example.chat.bean.post.PublicCommentBean;
-import com.example.chat.manager.UserDBManager;
 import com.example.chat.manager.UserManager;
-import com.example.commonlibrary.baseadapter.empty.EmptyLayout;
 import com.example.commonlibrary.bean.chat.PostNotifyInfo;
+import com.example.commonlibrary.mvp.model.DefaultModel;
 import com.example.commonlibrary.mvp.view.IView;
 
 import java.util.ArrayList;
@@ -26,10 +23,10 @@ import cn.bmob.v3.listener.FindListener;
  * 创建时间:    2018/5/19     11:07
  */
 
-public class CommentNotifyPresenter extends AppBasePresenter<IView<List<PostNotifyBean>>, CommentNotifyModel> {
+public class CommentNotifyPresenter extends AppBasePresenter<IView<List<PostNotifyBean>>, DefaultModel> {
     private int page = 0;
 
-    public CommentNotifyPresenter(IView<List<PostNotifyBean>> iView, CommentNotifyModel baseModel) {
+    public CommentNotifyPresenter(IView<List<PostNotifyBean>> iView, DefaultModel baseModel) {
         super(iView, baseModel);
     }
 
@@ -44,7 +41,7 @@ public class CommentNotifyPresenter extends AppBasePresenter<IView<List<PostNoti
             List<String> idList = new ArrayList<>();
             for (PostNotifyInfo info :
                     list) {
-                if (info.getType().equals(Constant.TYPE_COMMENT)
+                if (info.getType().equals(ConstantUtil.TYPE_COMMENT)
                         && info.getId().contains("&")) {
                     idList.addAll(Arrays.asList(info.getId().split("&")));
                 } else {

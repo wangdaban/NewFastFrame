@@ -1,21 +1,14 @@
 package com.example.commonlibrary.baseadapter.adapter;
 
-import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentManager;
-import android.support.v4.app.FragmentPagerAdapter;
-import android.support.v4.app.FragmentStatePagerAdapter;
-import android.support.v4.app.FragmentTransaction;
-import android.support.v4.view.PagerAdapter;
-import android.view.ViewGroup;
-
-import com.example.commonlibrary.BaseFragment;
-
-import java.lang.reflect.Method;
 import java.util.List;
+
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
+import androidx.fragment.app.FragmentPagerAdapter;
 
 public class ViewPagerAdapter extends FragmentPagerAdapter {
     private List<String> titleList;
-    private List<BaseFragment> fragments;
+    private List<Fragment> fragments;
 
     public ViewPagerAdapter(FragmentManager fm) {
         super(fm);
@@ -28,15 +21,23 @@ public class ViewPagerAdapter extends FragmentPagerAdapter {
 
     @Override
     public CharSequence getPageTitle(int position) {
-        return titleList.get(position);
+        if (titleList != null) {
+            return titleList.get(position);
+        } else {
+            return null;
+        }
     }
 
     @Override
     public int getCount() {
-        return fragments.size();
+        if (fragments != null) {
+            return fragments.size();
+        } else {
+            return 0;
+        }
     }
 
-    public void setTitleAndFragments(List<String> titleList, List<BaseFragment> fragments) {
+    public void setTitleAndFragments(List<String> titleList, List<Fragment> fragments) {
         this.titleList = titleList;
         this.fragments = fragments;
     }

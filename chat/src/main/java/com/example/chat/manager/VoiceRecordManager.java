@@ -11,7 +11,7 @@ import android.media.MediaRecorder;
 import android.os.Handler;
 import android.os.Message;
 
-import com.example.chat.base.Constant;
+import com.example.chat.base.ConstantUtil;
 import com.example.chat.util.CommonUtils;
 import com.example.chat.util.LogUtil;
 
@@ -41,7 +41,7 @@ public class VoiceRecordManager {
          * 缓存线程池
          */
         private ExecutorService mExecutorService;
-        private Handler updateHandler = new Handler() {
+        private  Handler updateHandler = new Handler() {
                 @Override
                 public void handleMessage(Message msg) {
                         switch (msg.what) {
@@ -158,7 +158,7 @@ public class VoiceRecordManager {
          */
         private String getVoiceRecordPath(String uid) {
                 String localId = CommonUtils.md5(UserManager.getInstance().getCurrentUserObjectId());
-                File dir = new File(Constant.VOICE_CACHE_DIR + localId + File.separator + uid);
+                File dir = new File(ConstantUtil.VOICE_CACHE_DIR + localId + File.separator + uid);
                 if (!dir.exists()) {
                         dir.mkdirs();
                 }

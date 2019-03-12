@@ -1,36 +1,35 @@
 package com.example.chat.mvp.shareinfo;
 
+import android.app.SharedElementCallback;
+import android.os.Build;
 import android.os.Bundle;
-import android.support.design.widget.AppBarLayout;
-import android.support.v4.widget.SwipeRefreshLayout;
-import android.support.v7.widget.RecyclerView;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.bumptech.glide.Glide;
-import com.example.chat.ChatApplication;
+import com.example.chat.base.ChatApplication;
 import com.example.chat.R;
 import com.example.chat.adapter.ShareInfoAdapter;
-import com.example.chat.base.Constant;
-import com.example.chat.bean.ImageItem;
-import com.example.chat.bean.post.PublicPostBean;
+import com.example.chat.adapter.holder.publicShare.ImageShareInfoHolder;
+import com.example.chat.base.ConstantUtil;
 import com.example.chat.bean.post.PostDataBean;
+import com.example.chat.bean.post.PublicPostBean;
 import com.example.chat.dagger.shareinfo.DaggerShareInfoComponent;
 import com.example.chat.dagger.shareinfo.ShareInfoModule;
 import com.example.chat.events.CommentEvent;
-import com.example.chat.events.NetStatusEvent;
+import com.example.chat.events.DeletePostEvent;
 import com.example.chat.events.UnReadPostNotifyEvent;
 import com.example.chat.events.UpdatePostEvent;
+import com.example.chat.events.UserInfoUpdateEvent;
 import com.example.chat.manager.MsgManager;
 import com.example.chat.manager.UserDBManager;
 import com.example.chat.manager.UserManager;
 import com.example.chat.mvp.EditShare.EditShareInfoActivity;
+import com.example.chat.mvp.UserDetail.UserDetailActivity;
 import com.example.chat.mvp.commentlist.CommentListActivity;
 import com.example.chat.mvp.commentnotify.CommentNotifyActivity;
-import com.example.chat.mvp.preview.PhotoPreViewActivity;
-import com.example.chat.mvp.UserDetail.UserDetailActivity;
 import com.example.chat.view.fab.FloatingActionButton;
 import com.example.chat.view.fab.FloatingActionsMenu;
 import com.example.commonlibrary.BaseApplication;
@@ -41,27 +40,35 @@ import com.example.commonlibrary.baseadapter.foot.LoadMoreFooterView;
 import com.example.commonlibrary.baseadapter.foot.OnLoadMoreListener;
 import com.example.commonlibrary.baseadapter.listener.OnSimpleItemClickListener;
 import com.example.commonlibrary.baseadapter.manager.WrappedLinearLayoutManager;
+import com.example.commonlibrary.baseadapter.viewholder.BaseWrappedViewHolder;
 import com.example.commonlibrary.bean.chat.PostNotifyInfo;
 import com.example.commonlibrary.bean.chat.PublicPostEntity;
 import com.example.commonlibrary.bean.chat.UserEntity;
-import com.example.commonlibrary.cusotomview.ToolBarOption;
+import com.example.commonlibrary.customview.ToolBarOption;
+import com.example.commonlibrary.customview.swipe.CustomSwipeRefreshLayout;
+import com.example.commonlibrary.imageloader.glide.GlideImageLoaderConfig;
+import com.example.commonlibrary.mvp.base.ImagePreViewActivity;
 import com.example.commonlibrary.rxbus.RxBusManager;
+import com.example.commonlibrary.rxbus.event.NetStatusEvent;
+import com.example.commonlibrary.rxbus.event.PhotoPreEvent;
 import com.example.commonlibrary.utils.AppUtil;
 import com.example.commonlibrary.utils.CommonLogger;
 import com.example.commonlibrary.utils.ToastUtils;
+import com.google.android.material.appbar.AppBarLayout;
 import com.google.gson.Gson;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import javax.inject.Inject;
 
+import androidx.core.app.ActivityOptionsCompat;
+import androidx.core.util.Pair;
 import cn.bmob.v3.exception.BmobException;
 import cn.bmob.v3.listener.UpdateListener;
-import cn.jzvd.JZMediaManager;
-import cn.jzvd.JZUtils;
-import cn.jzvd.JZVideoPlayer;
 import io.reactivex.disposables.Disposable;
+import io.reactivex.functions.Consumer;
 
 /**
  * 项目名称:    NewFastFrame
@@ -70,12 +77,12 @@ import io.reactivex.disposables.Disposable;
  * QQ:         1981367757
  */
 
-public class ShareInfoFragment extends BaseFragment<List<PublicPostBean>, ShareInfoPresenter> implements SwipeRefreshLayout.OnRefreshListener, OnLoadMoreListener, View.OnClickListener, AppBarLayout.OnOffsetChangedListener {
+public class ShareInfoFragment extends BaseFragment<List<PublicPostBean>, ShareInfoPresenter> implements CustomSwipeRefreshLayout.OnRefreshListener, OnLoadMoreListener, View.OnClickListener, AppBarLayout.OnOffsetChangedListener {
 
     private SuperRecyclerView display;
     @Inject
     ShareInfoAdapter shareInfoAdapter;
-    private SwipeRefreshLayout refresh;
+    private CustomSwipeRefreshLayout refresh;
     private FloatingActionsMenu mMenu;
     private WrappedLinearLayoutManager manager;
     private UserEntity userEntity;
@@ -86,14 +93,12 @@ public class ShareInfoFragment extends BaseFragment<List<PublicPostBean>, ShareI
     private ImageView unReadAvatar;
     private TextView unReadCount;
     private ArrayList<PostNotifyInfo> unReadPostNotifyList;
+    private int index = -1;
+    private int currentImageIndex = -1;
 
     @Override
     protected boolean isNeedHeadLayout() {
-        if (getArguments().getBoolean(Constant.IS_PUBLIC,false)) {
-            return true;
-        } else {
-            return false;
-        }
+        return false;
     }
 
     @Override
@@ -109,22 +114,20 @@ public class ShareInfoFragment extends BaseFragment<List<PublicPostBean>, ShareI
 
     @Override
     protected boolean needStatusPadding() {
-        return true;
+        return false;
     }
-
-
 
     @Override
     protected void initView() {
-        display = (SuperRecyclerView) findViewById(R.id.srcv_fragment_share_info_display);
-        refresh = (SwipeRefreshLayout) findViewById(R.id.refresh_fragment_share_info_refresh);
-        mMenu = (FloatingActionsMenu) findViewById(R.id.fam_share_info_menu);
-        FloatingActionButton normal = (FloatingActionButton) findViewById(R.id.fab_share_info_normal);
-        FloatingActionButton video = (FloatingActionButton) findViewById(R.id.fab_share_info_video);
-        FloatingActionButton image = (FloatingActionButton) findViewById(R.id.fab_share_info_image);
+        display = findViewById(R.id.srcv_fragment_share_info_display);
+        mMenu = findViewById(R.id.fam_share_info_menu);
+        FloatingActionButton normal = findViewById(R.id.fab_share_info_normal);
+        FloatingActionButton video = findViewById(R.id.fab_share_info_video);
+        FloatingActionButton image = findViewById(R.id.fab_share_info_image);
         normal.setOnClickListener(this);
         video.setOnClickListener(this);
         image.setOnClickListener(this);
+        refresh = findViewById(R.id.refresh_fragment_share_info_refresh);
         refresh.setOnRefreshListener(this);
 
     }
@@ -136,43 +139,37 @@ public class ShareInfoFragment extends BaseFragment<List<PublicPostBean>, ShareI
                 .chatMainComponent(ChatApplication.getChatMainComponent())
                 .shareInfoModule(new ShareInfoModule(this))
                 .build().inject(this);
-        String uid=getArguments().getString(Constant.ID);
-        isPublic=getArguments().getBoolean(Constant.IS_PUBLIC,false);
-        userEntity= UserDBManager.getInstance().getUser(uid);
-        if (uid.equals(UserManager.getInstance().getCurrentUserObjectId())){
+        String uid = getArguments().getString(ConstantUtil.ID);
+        isPublic = getArguments().getBoolean(ConstantUtil.IS_PUBLIC, false);
+        userEntity = UserDBManager.getInstance().getUser(uid);
+        if (uid.equals(UserManager.getInstance().getCurrentUserObjectId())) {
             mMenu.setVisibility(View.VISIBLE);
-        }else {
+        } else {
             mMenu.setVisibility(View.GONE);
         }
-        initTopBar();
-        presenter.registerEvent(UnReadPostNotifyEvent.class, unReadCommentEvent -> {
-            updateInfo(unReadCommentEvent!=null?unReadCommentEvent.getPostNotifyBean().getRelatedUser().getAvatar():null);
-
-        });
+        //        initTopBar();
+        presenter.registerEvent(UnReadPostNotifyEvent.class, unReadCommentEvent -> updateInfo(unReadCommentEvent));
+        presenter.registerEvent(UserInfoUpdateEvent.class, userInfoUpdateEvent -> getAppComponent().getImageLoader()
+                .loadImage(getContext(), GlideImageLoaderConfig
+                        .newBuild().url(UserManager.getInstance().getCurrentUser().getTitleWallPaper())
+                        .imageView(titleBg).build()));
         display.setLayoutManager(manager = new WrappedLinearLayoutManager(getContext()));
         display.setLoadMoreFooterView(new LoadMoreFooterView(getContext()));
-        display.addHeaderView(getHeaderView());
+        if (isPublic) {
+            display.addHeaderView(getHeaderView());
+        } else {
+            refresh.setEnabled(false);
+        }
         display.setOnLoadMoreListener(this);
         mMenu.attachToRecyclerView(display);
         display.setAdapter(shareInfoAdapter);
-        display.addOnChildAttachStateChangeListener(new RecyclerView.OnChildAttachStateChangeListener() {
-            @Override
-            public void onChildViewAttachedToWindow(View view) {
-
-            }
-
-            @Override
-            public void onChildViewDetachedFromWindow(View view) {
-                JZVideoPlayer jzvd = view.findViewById(R.id.js_item_fragment_share_info_video_display);
-                if (jzvd != null &&jzvd.getVisibility()!=View.GONE&&JZUtils.dataSourceObjectsContainsUri(jzvd.dataSourceObjects, JZMediaManager.getCurrentDataSource())) {
-                    JZVideoPlayer.releaseAllVideos();
-                }
-            }
-        });
         shareInfoAdapter.setOnItemClickListener(new OnSimpleItemClickListener() {
             @Override
             public void onItemClick(int position, View view) {
-                CommentListActivity.start(getActivity(), shareInfoAdapter.getData(position));
+                BaseWrappedViewHolder baseWrappedViewHolder = (BaseWrappedViewHolder) display.findViewHolderForAdapterPosition(position + shareInfoAdapter.getItemUpCount());
+                ActivityOptionsCompat activityOptionsCompat = ActivityOptionsCompat.makeSceneTransitionAnimation(getActivity()
+                        , Pair.create(baseWrappedViewHolder.itemView, "header"));
+                CommentListActivity.start(getActivity(), shareInfoAdapter.getData(position), activityOptionsCompat);
             }
 
 
@@ -180,57 +177,66 @@ public class ShareInfoFragment extends BaseFragment<List<PublicPostBean>, ShareI
             public void onItemChildClick(int position, View view, int id) {
 
                 if (id == R.id.tv_item_fragment_share_info_share) {
-                    PublicPostBean data=shareInfoAdapter.getData(position);
+                    PublicPostBean data = shareInfoAdapter.getData(position);
                     if (data.getAuthor().getObjectId().equals(UserManager.getInstance().getCurrentUserObjectId())) {
                         ToastUtils.showShortToast("不能转发自己的说说");
-                    }else {
-                        if (data.getMsgType() == Constant.EDIT_TYPE_SHARE) {
-                            Gson gson=BaseApplication
+                    } else {
+                        if (data.getMsgType() == ConstantUtil.EDIT_TYPE_SHARE) {
+                            Gson gson = BaseApplication
                                     .getAppComponent().getGson();
-                            PublicPostBean bean=
+                            PublicPostBean bean =
                                     MsgManager.getInstance()
-                                    .cover(gson.fromJson(gson.fromJson(data.getContent(),PostDataBean.class).getShareContent()
-                                            ,PublicPostEntity.class));
-                            EditShareInfoActivity.start(getActivity(),Constant.EDIT_TYPE_SHARE,bean
-                                    ,false);
-                        }else {
-                            EditShareInfoActivity.start(getActivity(),Constant.EDIT_TYPE_SHARE,data
-                                    ,false);
+                                            .cover(gson.fromJson(gson.fromJson(data.getContent(), PostDataBean.class).getShareContent()
+                                                    , PublicPostEntity.class));
+                            EditShareInfoActivity.start(getActivity(), ConstantUtil.EDIT_TYPE_SHARE, bean
+                                    , false);
+                        } else {
+                            EditShareInfoActivity.start(getActivity(), ConstantUtil.EDIT_TYPE_SHARE, data
+                                    , false);
                         }
                     }
                 } else if (id == R.id.tv_item_fragment_share_info_comment) {
-                    CommentListActivity.start(getActivity(), shareInfoAdapter.getData(position));
+                    BaseWrappedViewHolder baseWrappedViewHolder = (BaseWrappedViewHolder) display.findViewHolderForAdapterPosition(position + shareInfoAdapter.getItemUpCount());
+                    ActivityOptionsCompat activityOptionsCompat = ActivityOptionsCompat.makeSceneTransitionAnimation(getActivity()
+                            , Pair.create(baseWrappedViewHolder.itemView, "header"));
+                    CommentListActivity.start(getActivity(), shareInfoAdapter.getData(position), activityOptionsCompat);
                 } else if (id == R.id.tv_item_fragment_share_info_like) {
                     dealLike(shareInfoAdapter.getData(position));
                 } else if (id == R.id.riv_item_fragment_share_info_avatar) {
+                    BaseWrappedViewHolder baseWrappedViewHolder = (BaseWrappedViewHolder) display.findViewHolderForAdapterPosition(position + shareInfoAdapter.getItemUpCount());
                     UserDetailActivity.start(getActivity(), shareInfoAdapter.getData(position)
-                            .getAuthor().getObjectId());
+                            .getAuthor().getObjectId(), ActivityOptionsCompat.makeSceneTransitionAnimation(getActivity(), Pair.create(view, "avatar")
+                            , Pair.create(baseWrappedViewHolder.getView(R.id.tv_item_fragment_share_info_main_text), "name")
+                            , Pair.create(baseWrappedViewHolder.getView(R.id.iv_item_fragment_share_info_sex), "sex")
+                    ));
                 } else if (id == R.id.iv_item_fragment_share_info_more) {
                     if (shareInfoAdapter.getData(position).getAuthor().getObjectId().equals(UserManager.getInstance().getCurrentUserObjectId())) {
                         List<String> list1 = new ArrayList<>();
                         list1.add("删除");
                         list1.add("修改");
-                        showChooseDialog("帖子操作", list1, (adapterView, view1, i, l) -> {
-                            hideBaseDialog();
-                            if (i == 0) {
-                                showLoadDialog("删除中....");
-                                presenter.deleteShareInfo(shareInfoAdapter.getData(position), new UpdateListener() {
-                                    @Override
-                                    public void done(BmobException e) {
-                                        dismissLoadDialog();
-                                        if (e == null) {
-                                            ToastUtils.showShortToast("删除成功");
-                                            CommonLogger.e("删除成功");
-                                            shareInfoAdapter.removeData(position);
-                                        } else {
-                                            ToastUtils.showShortToast("删除失败" + e.toString());
-                                            CommonLogger.e("删除失败" + e.toString());
+                        showChooseDialog("帖子操作", list1, new OnSimpleItemClickListener() {
+                            @Override
+                            public void onItemClick(int i, View view) {
+                                if (i == 0) {
+                                    showLoadDialog("删除中....");
+                                    presenter.deleteShareInfo(shareInfoAdapter.getData(position), new UpdateListener() {
+                                        @Override
+                                        public void done(BmobException e) {
+                                            dismissLoadDialog();
+                                            if (e == null) {
+                                                ToastUtils.showShortToast("删除成功");
+                                                CommonLogger.e("删除成功");
+                                                RxBusManager.getInstance().post(new DeletePostEvent(shareInfoAdapter.getData(position)));
+                                            } else {
+                                                ToastUtils.showShortToast("删除失败" + e.toString());
+                                                CommonLogger.e("删除失败" + e.toString());
+                                            }
                                         }
-                                    }
-                                });
-                            } else {
-                                PublicPostBean publicPostBean = shareInfoAdapter.getData(position);
-                                EditShareInfoActivity.start(getActivity(), publicPostBean.getMsgType(), publicPostBean, true);
+                                    });
+                                } else {
+                                    PublicPostBean publicPostBean = shareInfoAdapter.getData(position);
+                                    EditShareInfoActivity.start(getActivity(), publicPostBean.getMsgType(), publicPostBean, true);
+                                }
                             }
                         });
                     } else {
@@ -240,70 +246,117 @@ public class ShareInfoFragment extends BaseFragment<List<PublicPostBean>, ShareI
                     dealSharePostData(position);
                 } else if (id == R.id.ll_item_fragment_share_info_share_container) {
                     dealSharePostData(position);
-                } else if (id==R.id.iv_item_fragment_share_info_retry){
-                    shareInfoAdapter.getData(position).setSendStatus(Constant.SEND_STATUS_SENDING);
+                } else if (id == R.id.iv_item_fragment_share_info_retry) {
+                    shareInfoAdapter.getData(position).setSendStatus(ConstantUtil.SEND_STATUS_SENDING);
                     shareInfoAdapter.notifyItemChanged(position);
                     presenter.reSendPublicPostBean(shareInfoAdapter.getData(position), shareInfoAdapter.getData(position).getObjectId());
-                }else {
+                } else {
                     List<String> imageList = BaseApplication
                             .getAppComponent()
                             .getGson().fromJson(shareInfoAdapter.getData(position)
                                     .getContent(), PostDataBean.class).getImageList();
                     if (imageList != null && imageList.size() > 0) {
-                        ArrayList<ImageItem> result = new ArrayList<>();
-                        for (String str :
-                                imageList) {
-                            ImageItem imageItem = new ImageItem();
-                            imageItem.setPath(str);
-                            result.add(imageItem);
-                        }
-                        PhotoPreViewActivity.start(getActivity(), id, result, false);
+                        currentImageIndex = position;
+                        //                        ArrayList<SystemUtil.ImageItem> result = new ArrayList<>();
+                        //                        for (String str :
+                        //                                imageList) {
+                        //                            SystemUtil.ImageItem imageItem = new SystemUtil.ImageItem();
+                        //                            imageItem.setPath(str);
+                        //                            result.add(imageItem);
+                        //                        }
+                        //                        PhotoPreViewActivity.start(getActivity(), id, result, false);
+                        ImagePreViewActivity.start(getActivity(), (ArrayList<String>) imageList, id, view, ConstantUtil.SHARE_INFO_FLAG);
                     } else {
                         dealSharePostData(position);
                     }
                 }
+            }
+        });
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            getActivity().setExitSharedElementCallback(new SharedElementCallback() {
+                @Override
+                public void onMapSharedElements(List<String> names, Map<String, View> sharedElements) {
+                    ImageShareInfoHolder imageShareInfoHolder = null;
+                    if (currentImageIndex != -1) {
+                        imageShareInfoHolder = (ImageShareInfoHolder) display.findViewHolderForAdapterPosition(currentImageIndex + shareInfoAdapter.getItemUpCount());
+                    }
+                    View view = null;
+                    if (imageShareInfoHolder != null) {
+                        view = imageShareInfoHolder.getDisplay().getLayoutManager().findViewByPosition(index);
+                    }
+                    if (view != null) {
+                        sharedElements.clear();
+                        sharedElements.put(((ImageShareInfoHolder.ImageShareAdapter) imageShareInfoHolder.getDisplay().getAdapter())
+                                .getData(index), view);
+                        index = -1;
+                        currentImageIndex = -1;
+                    }
+                }
+            });
+        }
+        presenter.registerEvent(PhotoPreEvent.class, new Consumer<PhotoPreEvent>() {
+            @Override
+            public void accept(PhotoPreEvent photoPreEvent) throws Exception {
+                if (photoPreEvent.getFlag() == ConstantUtil.SHARE_INFO_FLAG) {
+                    index = photoPreEvent.getIndex();
+                }
+            }
+        });
+
+        presenter.registerEvent(PublicPostBean.class, publicPostBean -> {
+
+            if (!isPublic && !userEntity.getUid().equals(UserManager.getInstance().getCurrentUserObjectId())) {
+                return;
             }
 
-
-        });
-        presenter.registerEvent(PublicPostBean.class, publicPostBean -> {
             if (!publicPostBean.getObjectId().contains("-") && shareInfoAdapter.getData().contains(publicPostBean)) {
                 ToastUtils.showLongToast("更新帖子中...........");
-                publicPostBean.setSendStatus(Constant.SEND_STATUS_SENDING);
+                publicPostBean.setSendStatus(ConstantUtil.SEND_STATUS_SENDING);
                 shareInfoAdapter.addData(0, publicPostBean);
                 presenter.updatePublicPostBean(publicPostBean);
             } else {
                 shareInfoAdapter.addData(0, publicPostBean);
-                manager.scrollToPositionWithOffset(0,0);
+                manager.scrollToPositionWithOffset(0, 0);
                 if (AppUtil.isNetworkAvailable()) {
                     refreshOfflineMessage();
                 }
             }
         });
 
-//        用于接收更新过后的post
+        //        用于接收更新过后的post
         presenter.registerEvent(UpdatePostEvent.class, updatePostEvent -> {
-                shareInfoAdapter.addData(updatePostEvent.getPublicPostBean());
+            if (!isPublic && !userEntity.getUid().equals(UserManager.getInstance().getCurrentUserObjectId())) {
+                return;
+            }
+            shareInfoAdapter.addData(updatePostEvent.getPublicPostBean());
         });
 
+
+        //        用于接收删除的post
+        presenter.registerEvent(DeletePostEvent.class, new Consumer<DeletePostEvent>() {
+            @Override
+            public void accept(DeletePostEvent deletePostEvent) throws Exception {
+                shareInfoAdapter.removeData(deletePostEvent.getPublicPostBean());
+            }
+        });
 
 
         presenter.registerEvent(CommentEvent.class, likeEvent -> {
             if (likeEvent.getType() == CommentEvent.TYPE_LIKE) {
                 PublicPostBean bean = shareInfoAdapter.getPublicPostDataById(likeEvent.getId());
-                if (likeEvent.getAction()==CommentEvent.ACTION_ADD) {
+                if (likeEvent.getAction() == CommentEvent.ACTION_ADD) {
                     bean.getLikeList().add(UserManager.getInstance().getCurrentUserObjectId());
                     bean.setLikeCount(bean.getLikeCount() + 1);
-                }else {
-                    bean.setLikeCount(bean.getLikeCount()-1);
+                } else {
+                    bean.setLikeCount(bean.getLikeCount() - 1);
                     bean.getLikeList().remove(UserManager.getInstance().getCurrentUserObjectId());
                 }
                 shareInfoAdapter.addData(bean);
-            } else if (likeEvent.getType()==CommentEvent.TYPE_COMMENT){
+            } else if (likeEvent.getType() == CommentEvent.TYPE_COMMENT) {
                 notifyCommentAdd(likeEvent.getId());
-            }else if (likeEvent.getType()==CommentEvent.TYPE_POST){
-                if (likeEvent.getAction()==CommentEvent.ACTION_DELETE){
+            } else if (likeEvent.getType() == CommentEvent.TYPE_POST) {
+                if (likeEvent.getAction() == CommentEvent.ACTION_DELETE) {
                     PublicPostBean publicPostBean = new PublicPostBean();
                     publicPostBean.setObjectId(likeEvent.getId());
                     shareInfoAdapter.removeData(publicPostBean);
@@ -313,12 +366,11 @@ public class ShareInfoFragment extends BaseFragment<List<PublicPostBean>, ShareI
     }
 
     private View getHeaderView() {
-        View headerView=getLayoutInflater().inflate(R.layout.view_fragment_share_info_header,null);
-        titleBg=headerView.findViewById(R.id.iv_view_fragment_share_info_header_bg);
-        unReadContainer=headerView.findViewById(R.id.ll_view_fragment_share_info_header_unread);
-
-        unReadAvatar=headerView.findViewById(R.id.iv_view_fragment_share_info_header_avatar);
-        unReadCount=headerView.findViewById(R.id.tv_view_fragment_share_info_header_unread);
+        View headerView = getLayoutInflater().inflate(R.layout.view_fragment_share_info_header, null);
+        titleBg = headerView.findViewById(R.id.iv_view_fragment_share_info_header_bg);
+        unReadContainer = headerView.findViewById(R.id.ll_view_fragment_share_info_header_unread);
+        unReadAvatar = headerView.findViewById(R.id.iv_view_fragment_share_info_header_avatar);
+        unReadCount = headerView.findViewById(R.id.tv_view_fragment_share_info_header_unread);
         unReadContainer.setOnClickListener(this);
         return headerView;
     }
@@ -327,8 +379,8 @@ public class ShareInfoFragment extends BaseFragment<List<PublicPostBean>, ShareI
         int size = shareInfoAdapter.getData().size();
         for (int i = 0; i < size; i++) {
             PublicPostBean publicPostBean = shareInfoAdapter.getData(i);
-            if (publicPostBean.getSendStatus() == Constant.SEND_STATUS_FAILED) {
-                publicPostBean.setSendStatus(Constant.SEND_STATUS_SENDING);
+            if (publicPostBean.getSendStatus().equals(ConstantUtil.SEND_STATUS_FAILED)) {
+                publicPostBean.setSendStatus(ConstantUtil.SEND_STATUS_SENDING);
                 shareInfoAdapter.notifyItemChanged(i + shareInfoAdapter.getItemUpCount());
                 if (publicPostBean.getObjectId().contains("-")) {
                     presenter.reSendPublicPostBean(shareInfoAdapter.getData(i), shareInfoAdapter.getData(i).getObjectId());
@@ -340,6 +392,10 @@ public class ShareInfoFragment extends BaseFragment<List<PublicPostBean>, ShareI
     }
 
     private void dealLike(PublicPostBean bean) {
+        if (!AppUtil.isNetworkAvailable()) {
+            ToastUtils.showShortToast("网络不可用，请检查网络配置");
+            return;
+        }
         if (bean.getLikeList() != null && bean.getLikeList().contains(UserManager.getInstance().getCurrentUserObjectId())) {
             ToastUtils.showShortToast("已点赞，取消点赞");
             showLoadDialog("取消赞中...");
@@ -359,13 +415,11 @@ public class ShareInfoFragment extends BaseFragment<List<PublicPostBean>, ShareI
     }
 
 
-
-
     private void dealSharePostData(int position) {
         Gson gson = BaseApplication.getAppComponent()
                 .getGson();
         PostDataBean bean = gson.fromJson(shareInfoAdapter.getData(position).getContent(), PostDataBean.class);
-//                            分享文章的ID
+        //                            分享文章的ID
         PublicPostBean publicPostBean = MsgManager.getInstance().cover(gson.fromJson(bean.getShareContent(), PublicPostEntity.class));
         CommentListActivity.start(getActivity(), publicPostBean);
     }
@@ -376,32 +430,34 @@ public class ShareInfoFragment extends BaseFragment<List<PublicPostBean>, ShareI
         shareInfoAdapter.addData(bean);
     }
 
-    
-
 
     @Override
     protected void updateView() {
-        Glide.with(this).load(UserManager.getInstance().getCurrentUser()
-                .getTitleWallPaper()).into(titleBg);
+        if (titleBg != null) {
+            Glide.with(this).load(UserManager.getInstance().getCurrentUser()
+                    .getTitleWallPaper()).into(titleBg);
+        }
         updateInfo(null);
-        presenter.getAllPostData(isPublic,true, userEntity.getUid(), getRefreshTime(true));
+        presenter.getAllPostData(isPublic, true, userEntity.getUid(), getRefreshTime(true));
     }
 
-    private void updateInfo(String avatar) {
-        unReadPostNotifyList=UserDBManager.getInstance().getUnReadPostNotify();
-        int count=0;
-        if (unReadPostNotifyList!=null) {
+    private void updateInfo(UnReadPostNotifyEvent unReadPostNotifyEvent) {
+        if (!isPublic)
+            return;
+        unReadPostNotifyList = UserDBManager.getInstance().getUnReadPostNotify();
+        int count = 0;
+        if (unReadPostNotifyList != null) {
             count = unReadPostNotifyList.size();
         }
         if (count > 0) {
             unReadContainer.setVisibility(View.VISIBLE);
-            unReadCount.setText("你有"+count+"条未读消息");
-            if (avatar != null) {
-                Glide.with(getContext()).load(avatar).into(unReadAvatar);
-            }else {
+            unReadCount.setText("你有" + count + "条未读消息");
+            if (unReadPostNotifyEvent != null && unReadPostNotifyEvent.getPostNotifyBean() != null && unReadPostNotifyEvent.getPostNotifyBean().getRelatedUser() != null) {
+                Glide.with(getContext()).load(unReadPostNotifyEvent.getPostNotifyBean().getRelatedUser().getAvatar()).into(unReadAvatar);
+            } else {
                 presenter.getFirstPostNotifyBean();
             }
-        }else {
+        } else {
             unReadContainer.setVisibility(View.GONE);
         }
     }
@@ -435,6 +491,7 @@ public class ShareInfoFragment extends BaseFragment<List<PublicPostBean>, ShareI
                 shareInfoAdapter.removeEndData(shareInfoAdapter.getData().size() - 10);
             }
             shareInfoAdapter.addData(0, publicPostBeans);
+            manager.scrollToPosition(0);
         } else {
             shareInfoAdapter.addData(publicPostBeans);
         }
@@ -479,7 +536,7 @@ public class ShareInfoFragment extends BaseFragment<List<PublicPostBean>, ShareI
         if (disposable != null && !disposable.isDisposed()) {
             disposable.dispose();
         }
-        disposable=registerNet();
+        disposable = registerNet();
     }
 
     private Disposable registerNet() {
@@ -494,7 +551,6 @@ public class ShareInfoFragment extends BaseFragment<List<PublicPostBean>, ShareI
     @Override
     public void onPause() {
         super.onPause();
-        JZVideoPlayer.releaseAllVideos();
         if (disposable != null && !disposable.isDisposed()) {
             disposable.dispose();
         }
@@ -506,6 +562,11 @@ public class ShareInfoFragment extends BaseFragment<List<PublicPostBean>, ShareI
         if (disposable != null && !disposable.isDisposed()) {
             disposable.dispose();
         }
+    }
+
+
+    public SuperRecyclerView getDisplay() {
+        return display;
     }
 
     @Override
@@ -524,20 +585,20 @@ public class ShareInfoFragment extends BaseFragment<List<PublicPostBean>, ShareI
             mMenu.collapse();
         }
         if (id == R.id.fab_share_info_video) {
-            EditShareInfoActivity.start(getActivity(),Constant.EDIT_TYPE_VIDEO,null,false);
+            EditShareInfoActivity.start(getActivity(), ConstantUtil.EDIT_TYPE_VIDEO, null, false);
         } else if (id == R.id.fab_share_info_normal) {
-            EditShareInfoActivity.start(getActivity(),Constant.EDIT_TYPE_TEXT,null,false);
-        }else if (id==R.id.ll_view_fragment_share_info_header_unread){
-            CommentNotifyActivity.start(getActivity(),unReadPostNotifyList);
-        }else {
-            EditShareInfoActivity.start(getActivity(),Constant.EDIT_TYPE_IMAGE,null,false);
+            EditShareInfoActivity.start(getActivity(), ConstantUtil.EDIT_TYPE_TEXT, null, false);
+        } else if (id == R.id.ll_view_fragment_share_info_header_unread) {
+            CommentNotifyActivity.start(getActivity(), unReadPostNotifyList);
+        } else {
+            EditShareInfoActivity.start(getActivity(), ConstantUtil.EDIT_TYPE_IMAGE, null, false);
         }
     }
 
-    public static ShareInfoFragment newInstance(String uid,boolean isPublic) {
+    public static ShareInfoFragment newInstance(String uid, boolean isPublic) {
         Bundle bundle = new Bundle();
-        bundle.putString(Constant.ID,uid);
-        bundle.putBoolean(Constant.IS_PUBLIC,isPublic);
+        bundle.putString(ConstantUtil.ID, uid);
+        bundle.putBoolean(ConstantUtil.IS_PUBLIC, isPublic);
         ShareInfoFragment fragment = new ShareInfoFragment();
         fragment.setArguments(bundle);
         return fragment;
@@ -545,6 +606,6 @@ public class ShareInfoFragment extends BaseFragment<List<PublicPostBean>, ShareI
 
     @Override
     public void onOffsetChanged(AppBarLayout appBarLayout, int verticalOffset) {
-                CommonLogger.e(verticalOffset+"");
+        CommonLogger.e(verticalOffset + "");
     }
 }
